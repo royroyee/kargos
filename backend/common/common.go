@@ -3,13 +3,13 @@ package common
 // Overview main
 type Home struct {
 	Version    string // kuberentes version
-	TotalNodes int32  // total nodes
-	Created    int32  // created
+	TotalNodes int    // total nodes
+	Created    string // created
 
-	Tabs map[string]int32 // total_resources ~ daemon_sets
+	Tabs map[string]int // total_resources ~ daemon_sets
 
 	TopNamespaces []string
-	AlertCount    int32 // warning 등의 이벤트만
+	AlertCount    int // warning 등의 이벤트만
 }
 
 // Alert
@@ -41,7 +41,7 @@ type Pod struct {
 	Namespace        string `json:"namespace"`
 	PodIP            string `json:"podIP"`
 	ServiceConnected *bool  `json:"serviceConnected"`
-	Restarts         int32  `json:"restarts"`
+	Restarts         int    `json:"restarts"`
 }
 
 // Deployment

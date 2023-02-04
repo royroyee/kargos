@@ -1,13 +1,12 @@
 package http
 
 import (
-	"github.com/boanlab/kargos/backend/k8s"
+	"fmt"
+	"github.com/boanlab/kargos/k8s"
 	"github.com/julienschmidt/httprouter"
 	"k8s.io/apimachinery/pkg/util/json"
 	"net/http"
 )
-
-var kh k8s.K8sHandler
 
 func ServerValidator(w http.ResponseWriter, err error) {
 	if err != nil {
@@ -16,9 +15,12 @@ func ServerValidator(w http.ResponseWriter, err error) {
 	}
 }
 
-func (handler HTTPHandler) GetOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+var kh k8s.K8sHandler
 
-	home := kh.GetHome()
+func (httpHandler HTTPHandler) GetOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+	fmt.Println("check getOverview 1")
+	home := httpHandler.k8sHandler.GetHome()
 
 	result, err := json.Marshal(&home)
 	ServerValidator(w, err)

@@ -8,16 +8,28 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"log"
 	"time"
 )
 
 // TODO Filtering (파라미터에 namespace등을 받는 걸로 고려 중)
 
 // Get Kubernetes Version of Node
-func (kh K8sHandler) GetVersion() string {
-	masterNode, _ := kh.GetMasterNode()
 
-	return masterNode.Status.NodeInfo.KubeletVersion
+func (kh K8sHandler) GetKubeVersion() string {
+	nodeList, err := kh.GetNodeList()
+
+	if err != nil {
+		log.Printf("failed to get node list %s", err)
+		return ""
+	}
+
+	var result string
+	for _, node := range nodeList.Items {
+		result = node.Status.NodeInfo.KubeletVersion
+	}
+
+	return result
 }
 
 // Get Number of Nodes in Cluster
@@ -57,15 +69,6 @@ func (kh K8sHandler) GetClusterInfo() (*corev1.ComponentStatus, error) {
 
 // --- Node -- //
 
-func (kh K8sHandler) GetMasterNode() (*corev1.Node, error) {
-	masterNode, err := kh.K8sClient.CoreV1().Nodes().Get(context.TODO(), "master", metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get master node %s", err)
-
-	}
-	return masterNode, nil
-}
-
 func (kh K8sHandler) GetNodeList() (*corev1.NodeList, error) {
 	nodes, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
@@ -89,9 +92,11 @@ func (kh K8sHandler) GetTotalNamespaces() int {
 }
 
 func (kh K8sHandler) GetNamespaceList() (*corev1.NamespaceList, error) {
+	fmt.Println("namespace")
 	namespaces, err := kh.K8sClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed ")
+		fmt.Println(err)
+		return nil, fmt.Errorf("failed to get namespace list")
 	}
 	return namespaces, nil
 }

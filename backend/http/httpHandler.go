@@ -30,6 +30,7 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 
 	// node
 	r.GET("/nodes/overview", httpHandler.GetNodeOverview)
+	r.GET("/node/:name", httpHandler.GetNodeDetail)
 
 	http.ListenAndServe(":9000", r)
 }

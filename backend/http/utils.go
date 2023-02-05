@@ -36,3 +36,14 @@ func (httpHandler HTTPHandler) GetNodeOverview(w http.ResponseWriter, r *http.Re
 	w.Write(result)
 	w.WriteHeader(http.StatusOK)
 }
+
+func (httpHandler HTTPHandler) GetNodeDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	nodeDetail := httpHandler.k8sHandler.GetNodeDetail(ps.ByName("name"))
+
+	result, err := json.Marshal(&nodeDetail)
+	ServerValidator(w, err) // validation
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}

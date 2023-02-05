@@ -2,45 +2,46 @@ package common
 
 // Overview main
 type Home struct {
-	Version    string // kubernetes version
-	TotalNodes int    // total nodes
-	Created    string // created
+	Version    string `json:"kubernetes_version"` // kubernetes version
+	TotalNodes int    `json:"total_nodes"`        // total nodes
+	Created    string `json:"created"`            // created
 
 	Tabs map[string]int // total_resources ~ daemon_sets
 
-	TopNamespaces []string
-	AlertCount    int // warning 등의 이벤트만
+	TopNamespaces []string `json:"top_namespaces"`
+	AlertCount    int      `json:"alert_count"` // warning 등의 이벤트만
 }
 
 // Alert
 type Alert struct {
-	tag     string
-	message string
-	uuid    string
+	tag     string `json:"tag"`
+	message string `json:"message"`
+	uuid    string `json:"uuid"`
 }
 
 // Node
 type Node struct {
-	Name      string
-	CpuUsage  float64
-	RamUsage  float64
-	DiskUsage float64
-	IP        string
-	OsImage   string
-	Pods      []Pod
+	Name      string  `json:"name"`
+	CpuUsage  float64 `json:"cpu_usage"`
+	RamUsage  float64 `json:"ram_usage"`
+	DiskUsage float64 `json:"disk_usage"`
+	IP        string  `json:"ip"`
+	Ready     string  `json:"ready"`
+	OsImage   string  `json:"os_image"`
+	Pods      []Pod   `json:"pods"`
 
 	// detail 항목들
 }
 
 // Pod
 type Pod struct {
-	Name             string
-	Status           string // Running  or Pending
-	Image            string
-	Age              string // created
+	Name             string `json:"name"`
+	Status           string `json:"status"` // Running  or Pending
+	Image            string `json:"image"`
+	Age              string `json:"age"` // created
 	Namespace        string `json:"namespace"`
-	PodIP            string `json:"podIP"`
-	ServiceConnected *bool  `json:"serviceConnected"`
+	PodIP            string `json:"pod_ip"`
+	ServiceConnected *bool  `json:"service_connected"`
 	Restarts         int    `json:"restarts"`
 }
 
@@ -48,9 +49,9 @@ type Pod struct {
 type Deployment struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
-	Image     string
-	Status    string
-	Label     string
+	Image     string `json:"image"`
+	Status    string `json:"status"`
+	Label     string `json:"label"`
 	created   string `json:"pod_count"`
 
 	// detail 항목들
@@ -58,20 +59,20 @@ type Deployment struct {
 
 // Namespace
 type Namespace struct {
-	Name      string
-	Status    string
-	Cpu_usage string
-	Ram_usage string
+	Name     string `json:"name"`
+	Status   string `json:"status"`
+	CpuUsage string `json:"cpu_usage"`
+	RamUsage string `json:"ram_usage"`
 
 	// Infra agent
-	process []Process // inner struct
+	process []Process `json:"process"` // inner struct
 }
 
 // Process (Infra agent)
 type Process struct {
-	Name     string
-	Status   string
-	PID      int32
-	CpuUsage int32
-	RamUsage int32
+	Name     string `json:"name"`
+	Status   string `json:"status"`
+	PID      int32  `json:"pid"`
+	CpuUsage int32  `json:"cpu_usage"`
+	RamUsage int32  `json:"ram_usage"`
 }

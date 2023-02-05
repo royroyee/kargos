@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	cm "github.com/boanlab/kargos/common"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -54,6 +55,7 @@ func (kh K8sHandler) GetCreatedOfCluster() string {
 	return creationTime
 }
 
+// TODO
 func (kh K8sHandler) GetAlertsCount() int {
 	return 0
 }
@@ -70,12 +72,22 @@ func (kh K8sHandler) GetClusterInfo() (*corev1.ComponentStatus, error) {
 
 // --- Node -- //
 
+// Get NodeList
 func (kh K8sHandler) GetNodeList() (*corev1.NodeList, error) {
 	nodes, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node list %s", err)
 	}
 	return nodes, nil
+}
+
+// Get Node (name)
+func (kh K8sHandler) GetNode(nodeName string) (*corev1.Node, error) {
+	node, err := kh.K8sClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node list %s", err)
+	}
+	return node, nil
 }
 
 func (kh K8sHandler) GetMetricUsage(node corev1.Node) (cpuUsage float64, memoryUsage float64, diskUsage float64) {
@@ -154,6 +166,32 @@ func (kh K8sHandler) GetPodList() (*corev1.PodList, error) {
 		return nil, fmt.Errorf("failed to get pod list %s", err)
 	}
 	return pods, nil
+}
+func (kh K8sHandler) GetPodsByNode(nodeName string) (*corev1.PodList, error) {
+	pods, err := kh.K8sClient.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment list %s", err)
+	}
+
+	return pods, nil
+}
+
+func (kh K8sHandler) TransferPod(podList *corev1.PodList) []cm.Pod {
+	var result []cm.Pod
+
+	for _, pod := range podList.Items {
+		result = append(result, cm.Pod{
+			Name:   pod.Name,
+			Status: string(pod.Status.Phase),
+			Image:  pod.Spec.Containers[0].Image,
+			Age:    pod.CreationTimestamp.Time.Format(time.RFC3339),
+		})
+	}
+
+	return result
+
 }
 
 // -- Ingress -- //

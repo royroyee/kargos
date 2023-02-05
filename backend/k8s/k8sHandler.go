@@ -90,3 +90,26 @@ func (kh K8sHandler) GetNodeOverview() []cm.Node {
 	}
 	return result
 }
+
+// for node/:name
+func (kh K8sHandler) GetNodeDetail(nodeName string) cm.Node {
+	var result cm.Node
+
+	node, _ := kh.GetNode(nodeName)
+	// TODO fix diskUsage (only return zero)
+	cpuUsage, ramUsage, diskUsage := kh.GetMetricUsage(*node)
+
+	podList, _ := kh.GetPodsByNode(nodeName)
+
+	result = cm.Node{
+		Name:      nodeName,
+		CpuUsage:  cpuUsage,
+		RamUsage:  ramUsage,
+		DiskUsage: diskUsage,
+		IP:        node.Status.Addresses[0].Address,
+		Ready:     string(node.Status.Conditions[0].Status),
+		OsImage:   node.Status.NodeInfo.OSImage,
+		Pods:      kh.TransferPod(podList),
+	}
+	return result
+}

@@ -2,7 +2,7 @@ package common
 
 // Overview main
 type Home struct {
-	Version    string // kuberentes version
+	Version    string // kubernetes version
 	TotalNodes int    // total nodes
 	Created    string // created
 

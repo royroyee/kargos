@@ -25,7 +25,11 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 
 	log.Println("Success to start http server")
 
+	// overview/main
 	r.GET("/overview/main", httpHandler.GetOverview)
+
+	// node
+	r.GET("/nodes/overview", httpHandler.GetNodeOverview)
 
 	http.ListenAndServe(":9000", r)
 }

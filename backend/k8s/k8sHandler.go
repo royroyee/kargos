@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"fmt"
 	cm "github.com/boanlab/kargos/common"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
@@ -14,17 +13,20 @@ type K8sHandler struct {
 	// TODO DB Manager
 }
 
-func NewK8sHandler(clientSet *kubernetes.Clientset, metricClientSet *versioned.Clientset) *K8sHandler {
+func NewK8sHandler() *K8sHandler {
+
+	// In Cluster
+	//kh := &K8sHandler{
+	//  K8sClient = cm.InitK8sClient()
+	//	MetricK8sClient = cm.InitMetricK8sClient()
+	//}
+
+	// Out of Cluster
 	kh := &K8sHandler{
-		K8sClient:       clientSet,
-		MetricK8sClient: metricClientSet,
+
+		K8sClient:       cm.ClientSetOutofCluster(),
+		MetricK8sClient: cm.MetricClientSetOutofCluster(),
 	}
-
-	//kh.K8sClient = cm.InitK8sClient()
-	//kh.MetricK8sClient = cm.InitMetricK8sClient()
-
-	kh.K8sClient = cm.ClientSetOutofCluster()
-	kh.MetricK8sClient = cm.MetricClientSetOutofCluster()
 
 	return kh
 }
@@ -32,7 +34,7 @@ func NewK8sHandler(clientSet *kubernetes.Clientset, metricClientSet *versioned.C
 // for Overview/main
 func (kh K8sHandler) GetHome() cm.Home {
 	var result cm.Home
-	fmt.Println("check point GetHome() k8shandler")
+
 	// TODO 프론트에서 TotalResources 는 처리 불가능할까?
 	namespaces := kh.GetTotalNamespaces()
 	deployments := kh.GetTotalDeploy()
@@ -46,7 +48,7 @@ func (kh K8sHandler) GetHome() cm.Home {
 	result = cm.Home{
 		Version:    kh.GetKubeVersion(),
 		TotalNodes: kh.GetTotalNodes(),
-		//	Created:    kh.GetCreatedOfCluster(),
+		Created:    kh.GetCreatedOfCluster(),
 		Tabs: map[string]int{
 			"TotalResources":   namespaces + deployments + pods + ingresses + services + persistentVolumes + jobs + daemonSets,
 			"Namespaces":       namespaces,
@@ -64,5 +66,27 @@ func (kh K8sHandler) GetHome() cm.Home {
 		AlertCount:    kh.GetAlertsCount(),
 	}
 
+	return result
+}
+
+// for nodes/overview
+func (kh K8sHandler) GetNodeOverview() []cm.Node {
+	var result []cm.Node
+
+	var cpuUsage, ramUsage, diskUsage float64
+	nodeList, _ := kh.GetNodeList()
+	for _, node := range nodeList.Items {
+
+		// TODO fix diskUsage (only return zero)
+		cpuUsage, ramUsage, diskUsage = kh.GetMetricUsage(node)
+
+		result = append(result, cm.Node{
+			Name:      node.GetName(),
+			CpuUsage:  cpuUsage,
+			RamUsage:  ramUsage,
+			DiskUsage: diskUsage,
+			IP:        node.Status.Addresses[0].Address,
+		})
+	}
 	return result
 }

@@ -9,6 +9,7 @@ import (
 	networkv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
+	"math"
 	"time"
 )
 
@@ -75,6 +76,28 @@ func (kh K8sHandler) GetNodeList() (*corev1.NodeList, error) {
 		return nil, fmt.Errorf("failed to get node list %s", err)
 	}
 	return nodes, nil
+}
+
+func (kh K8sHandler) GetMetricUsage(node corev1.Node) (cpuUsage float64, memoryUsage float64, diskUsage float64) {
+	metrics, err := kh.MetricK8sClient.MetricsV1beta1().NodeMetricses().Get(context.TODO(), node.GetName(), metav1.GetOptions{})
+	if err != nil {
+		fmt.Errorf("failed to get node metrics: %s", err)
+		return 0, 0, 0
+	}
+
+	allocatableCpu := float64(node.Status.Allocatable.Cpu().MilliValue())
+	allocatableRam := float64(node.Status.Allocatable.Memory().MilliValue())
+	allocatableDisk := float64(node.Status.Capacity.StorageEphemeral().MilliValue())
+
+	usingCpu := float64(metrics.Usage.Cpu().MilliValue())
+	usingRam := float64(metrics.Usage.Memory().MilliValue())
+	usingDisk := float64(metrics.Usage.StorageEphemeral().MilliValue())
+
+	usageCpu := ToPercentage(usingCpu, allocatableCpu)
+	usageMemory := ToPercentage(usingRam, allocatableRam)
+	usageDisk := ToPercentage(usingDisk, allocatableDisk)
+
+	return usageCpu, usageMemory, usageDisk
 }
 
 // -- Namespace -- //
@@ -219,4 +242,13 @@ func (kh K8sHandler) GetDaemonSetList() (*appsv1.DaemonSetList, error) {
 	}
 
 	return daemonsets, nil
+}
+
+// -- util -- //
+
+// Round float to 2 demical places & percentage
+func ToPercentage(val1 float64, val2 float64) float64 {
+	result := (val1 / val2) * 100
+	result = math.Round(result)
+	return result
 }

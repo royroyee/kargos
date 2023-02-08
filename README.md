@@ -3,7 +3,7 @@
 
 
 ## Description
-Kubernetes is an open-source system for automating deployment, scaling, and management of containerized applications.
+Kubernetes is an open-source system for automating deployment, scaling, and management of containerized applications.</br>
 The Kargos allows you to monitor your Kubernetes cluster's resources, performance
 
 

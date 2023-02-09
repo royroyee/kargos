@@ -70,17 +70,13 @@ func printContainers(containers []cm.Container) {
 func matchPodContainers(containers []cm.Container, pod *cm.Pod) {
 	// Look for containers that matches the pod's container.
 	// This is O(n^2) operation, therefore, this must be optimized.
-	var containerSlice []cm.Container
 	for _, podContainerName := range pod.ContainerNames {
 		for _, container := range containers {
 			if strings.Contains(podContainerName, container.ID) {
-				containers = append(containerSlice, container)
+				pod.Containers = append(pod.Containers, container)
 			}
 		}
 	}
-
-	// Store containers and validate if all containers were found or not.
-	pod.Containers = containerSlice
 }
 
 // SendContainerData receives container is a callback function for gRPC with service of Containers.
@@ -89,8 +85,9 @@ func (c Containers) SendContainerData(ctx context.Context, info *ContainersInfo)
 	//printContainers(containers)
 
 	pods, _ := c.K8sHandler.GetPodOverview()
-	for _, pod := range pods {
+	for i, pod := range pods {
 		matchPodContainers(containers, &pod)
+		pods[i] = pod
 	}
 
 	// Store Pod Data into DB

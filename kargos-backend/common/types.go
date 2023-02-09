@@ -60,7 +60,7 @@ type Pod struct {
 	Timestamp        time.Time `json:"timestamp"` // not pod's created , just for db query
 
 	// Container struct
-	Containers     []Container `json:"container"`
+	Containers     []Container `json:"containers"`
 	ContainerNames []string
 }
 
@@ -166,7 +166,7 @@ type Process struct {
 
 // Container stores data for a single container.
 type Container struct {
-	ID        string
-	Namespace string
-	Processes []Process
+	ID        string    `json:"name"`
+	Namespace string    `json:"image"`
+	Processes []Process `json:"processes"`
 }

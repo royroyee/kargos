@@ -219,7 +219,7 @@ spec:
         - name: sys-mount
           hostPath:
             path: /sys
-
+---
 # Step 8. Kargos frontend service
 # Frontend server and its ports will be accessed by using service.
 apiVersion: v1

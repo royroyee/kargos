@@ -1,0 +1,32 @@
+# This is a GitHub Actions script for directories under kargos-backend.
+# This will NOT store artifacts due to the limits of quota that GitHub is allocating to our repository. 
+
+name: Go_Kargos_Backend
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - kargos-backend/**
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - kargos-backend/**
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19
+        cache: true
+        cache-dependency-path: kargos-backend/go.sum
+
+    - name: Build
+      working-directory: kargos-backend/
+      run: go build -v ./...

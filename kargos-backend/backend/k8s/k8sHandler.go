@@ -25,7 +25,7 @@ type K8sHandler struct {
 
 func NewK8sHandler() *K8sHandler {
 
-	// In Cluster
+	//In Cluster
 	kh := &K8sHandler{
 		K8sClient:       cm.InitK8sClient(),
 		MetricK8sClient: cm.InitMetricK8sClient(),
@@ -222,7 +222,7 @@ func (kh K8sHandler) GetJobsOverview() ([]cm.Job, error) {
 }
 
 // controllers/job/:namespace/:name
-func (kh K8sHandler) GetJobSpecific(name string, namespace string) (cm.Job, error) {
+func (kh K8sHandler) GetJobSpecific(namespace string, name string) (cm.Job, error) {
 	ret := cm.Job{}
 
 	job, err := kh.K8sClient.BatchV1().Jobs(namespace).Get(context.TODO(), name, metav1.GetOptions{})
@@ -259,7 +259,7 @@ func (kh K8sHandler) GetDaemonSetsOverview() ([]cm.DaemonSet, error) {
 }
 
 // controllers/daemonset/:namespace/:name
-func (kh K8sHandler) GetDaemonSetSpecific(name string, namespace string) (cm.DaemonSet, error) {
+func (kh K8sHandler) GetDaemonSetSpecific(namespace string, name string) (cm.DaemonSet, error) {
 	ret := cm.DaemonSet{}
 
 	daemonset, err := kh.K8sClient.AppsV1().DaemonSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})

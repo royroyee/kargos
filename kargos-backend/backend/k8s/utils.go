@@ -443,3 +443,28 @@ func GetRestartCount(pod corev1.Pod) int32 {
 	}
 	return restartCount
 }
+
+func CheckContainerOfPod(pod corev1.Pod) string {
+	if len(pod.Spec.Containers) > 0 {
+		return pod.Spec.Containers[0].Image
+
+	} else {
+		return "unknown"
+	}
+}
+
+func CheckContainerOfDeploy(deployment appsv1.Deployment) (status string, image string) {
+
+	status = "unknown"
+	image = "unknown"
+
+	if len(deployment.Status.Conditions) > 0 {
+		status = string(deployment.Status.Conditions[0].Status)
+	}
+
+	if len(deployment.Spec.Template.Spec.Containers) > 0 {
+		image = deployment.Spec.Template.Spec.Containers[0].Image
+	}
+
+	return status, image
+}

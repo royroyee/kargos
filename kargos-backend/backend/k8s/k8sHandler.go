@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"context"
-	"fmt"
 	cm "github.com/boanlab/kargos/common"
 	"github.com/boanlab/kargos/k8s/kubectl"
 	"gopkg.in/mgo.v2"
@@ -11,7 +10,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
-	"log"
 	"time"
 )
 
@@ -129,11 +127,12 @@ func (kh K8sHandler) GetDeploymentOverview() ([]cm.Deployment, error) {
 	}
 
 	for _, deploy := range deployList.Items {
+		status, image := CheckContainerOfDeploy(deploy)
 		result = append(result, cm.Deployment{
 			Name:      deploy.GetName(),
 			Namespace: deploy.GetNamespace(),
-			Image:     deploy.Spec.Template.Spec.Containers[0].Image,
-			Status:    string(deploy.Status.Conditions[0].Status),
+			Image:     image,
+			Status:    status,
 			Labels:    deploy.Labels,
 			Created:   deploy.GetCreationTimestamp().String(),
 		})
@@ -338,7 +337,7 @@ func (kh K8sHandler) GetPodOverview() ([]cm.Pod, error) {
 			Status:           string(pod.Status.Phase),
 			ServiceConnected: pod.Spec.EnableServiceLinks,
 			Restarts:         GetRestartCount(pod),
-			Image:            pod.Status.ContainerStatuses[0].Image,
+			Image:            CheckContainerOfPod(pod),
 			Age:              pod.CreationTimestamp.String(),
 			ContainerNames:   containerNames,
 			Timestamp:        time.Now(), // not pod's creation time , just for db query
@@ -480,30 +479,4 @@ func generateDescribeString(name string, namespace string, resourceType string) 
 	o, _ := flags.ToOptions("kubectl", []string{resourceType, name, "namespace", namespace})
 	ret := o.Run()
 	return ret
-}
-
-// TODO Watch for events
-func (kh K8sHandler) GetAlert() {
-
-	watcher, err := kh.K8sClient.CoreV1().Events("").Watch(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Fatalf("Failed to watch for events: %v", err)
-	}
-	defer watcher.Stop()
-
-	for {
-		select {
-		case event, ok := <-watcher.ResultChan():
-			if !ok {
-				log.Fatalf("Failed to receive events from watcher")
-			}
-
-			// Check if event is an error event
-			if event.Object.(*metav1.WatchEvent).Type == "Warning" {
-				fmt.Printf("Received alert: %s\n", event.Object.(*metav1.WatchEvent).String())
-			}
-		case <-time.After(time.Minute * 1):
-			fmt.Println("No new events received in the last minute")
-		}
-	}
 }

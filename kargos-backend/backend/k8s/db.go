@@ -5,7 +5,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"log"
-	"os"
 	"time"
 )
 
@@ -45,17 +44,20 @@ func (kh K8sHandler) DBSession() {
 // Create MongoDB Session
 func GetDBSession() *mgo.Session {
 	log.Println("Create DB Session .. ")
-	//session, err := mgo.Dial("mongodb://mongodb-service:27017")
+	session, err := mgo.Dial("mongodb://db-service:27017") // db-service is name of mongodb service(kubernetes)
 	//session, err := mgo.Dial("mongodb://localhost:27017")
 
-	// Check environment variables for mongodb.
-	mongodbIP := os.Getenv("MONGODB_LISTEN_ADDR")
-	mongodbPort := os.Getenv("MONGODB_LISTEN_PORT")
-	if len(mongodbPort) == 0 || len(mongodbIP) == 0 {
-		log.Fatalf("invalid mongodb address: %s:%s", mongodbIP, mongodbPort)
-	}
+	//// Check environment variables for mongodb.
+	//mongodbIP := os.Getenv("MONGODB_LISTEN_ADDR")
+	//mongodbPort := os.Getenv("MONGODB_LISTEN_PORT")
+	//if len(mongodbPort) == 0 || len(mongodbIP) == 0 {
+	//	if len(os.Getenv("DB_SERVICE_PORT_27017_TCP_ADDR")) != 0 {
+	//		mongodbIP = os.Getenv("DB_SERVICE_PORT_27017_TCP_ADDR")
+	//	} else {
+	//		log.Fatalf("invalid mongodb address: %s:%s", mongodbIP, mongodbPort)
+	//	}
+	//}
 
-	session, err := mgo.Dial("mongodb://" + mongodbIP + ":" + mongodbPort)
 	if err != nil {
 		panic(err)
 	}

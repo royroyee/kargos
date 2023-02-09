@@ -50,7 +50,7 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	r.GET("/resources/namespace/:name", httpHandler.GetNamespaceDetail)
 
 	r.GET("/resources/pods/overview", httpHandler.GetPodOverview)
-	r.GET("/resources/pod/:namespace/:name", httpHandler.GetPodDetail)
+	r.GET("/resources/pod/:name", httpHandler.GetPodDetail)
 
 	r.GET("/resources/services/overview", httpHandler.GetServiceOverview)
 	r.GET("/resources/service/:namespace/:name", httpHandler.GetServiceDetail)

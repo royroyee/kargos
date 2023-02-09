@@ -444,6 +444,8 @@ func GetRestartCount(pod corev1.Pod) int32 {
 	return restartCount
 }
 
+// Check if the container has been created //
+
 func CheckContainerOfPod(pod corev1.Pod) string {
 	if len(pod.Spec.Containers) > 0 {
 		return pod.Spec.Containers[0].Image

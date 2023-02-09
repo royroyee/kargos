@@ -1,0 +1,30 @@
+syntax = "proto3";
+package v3.kargos;
+option go_package ="./container";
+
+service Containers {
+  rpc SendContainerData (ContainersInfo) returns (Response) {}
+}
+
+message ProcessInfo {
+  string Name = 1;
+  string Status = 2;
+  int32 PID = 3;
+  float CPU = 4;
+  float RAM = 5;
+}
+
+message SingleContainerInfo {
+  string ID = 1;
+  string Namespace = 2;
+  repeated ProcessInfo processes = 3;
+}
+
+message ContainersInfo {
+  string NodeInfo = 1;
+  repeated SingleContainerInfo containers = 2;
+}
+
+message Response {
+  int32 status = 1;
+}

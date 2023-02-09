@@ -1,7 +1,5 @@
 FROM golang:1.19
 
-# RUN mkdir -p /host_kube
-
 # TODO builder pattern
 RUN mkdir /kargos
 WORKDIR /kargos

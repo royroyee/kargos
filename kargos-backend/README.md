@@ -4,7 +4,7 @@ An backend server that provides REST API to frontend and stores data from `kargo
 
 ## Features
 - gRPC server for recepting data from each `kargos-agent`s.
-- Kubernetes API client for retrieving data from the cluster.
+- Kubernetes API client for retrieving data from the cluster. (using [client-go](https://github.com/kubernetes/client-go))
 - DB handler for storing K8s information and data from `kargos-agent`s.
 - Providing REST API for frontend.
 

@@ -1,0 +1,56 @@
+#
+# Kargos-agent Daemonset
+# This will deploy daemonsets to each nodes.
+# The nodes will now have agents that will be sending data into the backend server.
+#
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kargos-agent
+  labels:
+    app: kargos-agent
+spec:
+  selector:
+    matchLabels:
+      app: kargos-agent
+  template:
+    metadata:
+      labels:
+        app: kargos-agent
+    spec:
+      containers:
+      - name: kargos-agent
+        image: isukim/kargos-agent:latest
+        env:
+        - name: SERVER_IP
+          value: "10.0.20.112"
+        - name: SERVER_PORT
+          value: "50001"
+        - name: GRPC_DELAY
+          value: "5"
+        securityContext:
+           privileged: true
+#
+# We are going to mount almost all system directories for this daemonset to work.
+# Since this agent uses PID and containerd sock, and network we need this.
+# Yes this is stupid and has potential of security issues.
+#
+        volumeMounts:
+          - name: run-mount
+            mountPath: /run
+          - name: proc-mount
+            mountPath: /proc
+          - name: sys-mount
+            mountPath: /sys
+      imagePullSecrets:
+        - name: regcred
+      volumes:
+        - name: run-mount
+          hostPath:
+            path: /run
+        - name: proc-mount
+          hostPath:
+            path: /proc
+        - name: sys-mount
+          hostPath:
+            path: /sys

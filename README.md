@@ -18,6 +18,7 @@ Kargos allows you to monitor your Kubernetes cluster's resources, performance wi
 ## Installation
 Kargos supports easy installation and deployment of the ecosystem using:
 ```bash
+kubectl create namespace kargos
 kubectl apply -f https://raw.githubusercontent.com/boanlab/kargos/main/kargos.yaml
 ```
 

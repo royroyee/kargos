@@ -77,8 +77,6 @@ spec:
           image: mongo:4.4
           ports:
             - containerPort: 27017
-      imagePullSecrets:
-        - name: regcred
 ---
 
 # Step 3. Kargos Database ConfigMap
@@ -148,8 +146,6 @@ spec:
           ports:
             - containerPort: 9000
             - containerPort: 50001
-      imagePullSecrets:
-        - name: regcred
 ---
 
 # Step 6. Kargos Backend ConfigMap
@@ -223,3 +219,57 @@ spec:
         - name: sys-mount
           hostPath:
             path: /sys
+
+# Step 8. Kargos frontend service
+# Frontend server and its ports will be accessed by using service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: kargos
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: frontend
+      port: 3000
+      targetPort: 3000
+  type: ClusterIP
+---
+
+# Step 9. Kargos frontend Deployment
+# Deploy kargos frontend and set some environment variables to make it work.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  namespace: kargos
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: kargos/kargos-frontend:latest
+          imagePullPolicy: Always
+          command: ["sh"]
+          args: ["-c", "sed -i \"s/serverhwan.shop:30891/$API_SERVER_IP:$API_SERVER_PORT/g\" /usr/src/app/package.json & sed -i \"s/serverhwan.shop:30891/$API_SERVER_IP:$API_SERVER_PORT/g\" /usr/src/app/src/setupProxy.js & npm start"]
+          env:
+          - name: API_SERVER_IP
+            valueFrom:
+              configMapKeyRef:
+                name: backend-configmap
+                key: backend_addr
+          - name: API_SERVER_PORT
+            value: "9000"
+          ports:
+            - containerPort: 3000
+---

@@ -1,0 +1,225 @@
+#
+# This kargos.yaml will deploy an running backend and infra microservices.
+# All controllers and resources will be generated under the namespace of kargos.
+# Please refer to the official GitHub page for more information:
+# https://github.com/boanlab/kargos
+#
+
+# Step 0. Generate service account, cluster role, cluster role binding
+# This will give our namespace "kargos" enough permissions to get metrics off from the k8s API.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: kargos
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: my-cluster-role
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: my-cluster-role-binding
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kargos
+roleRef:
+  kind: ClusterRole
+  name: my-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Step 1. Kargos Database service
+# MongoDB will be accessed by using service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+  namespace: kargos
+spec:
+  selector:
+    app: mongodb
+  ports:
+    - name: db
+      port: 27017
+      targetPort: 27017
+  type: ClusterIP
+---
+
+# Step 2. Kargos Database Deployment
+# Kargos uses MongoDB as storage for its database.
+# Following spec will generate MongoDB for storing data in the future.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+  namespace: kargos
+  labels:
+    app: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:4.4
+          ports:
+            - containerPort: 27017
+      imagePullSecrets:
+        - name: regcred
+---
+
+# Step 3. Kargos Database ConfigMap
+# This will generate a ConfigMap that stores mongodb's address.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-configmap
+  namespace: kargos
+data:
+  database_addr: db-service
+---
+
+# Step 4. Kargos backend service
+# Backend server and its ports will be accessed by using service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: kargos
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: backend-grpc
+      port: 50001
+      targetPort: 50001
+    - name: backend-rest
+      port: 9000
+      targetPort: 9000
+  type: ClusterIP
+---
+
+# Step 5. Kargos Backend Deployment
+# Deploy kargos backend and set some environment variables to make it work.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: kargos
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: kargos/kargos-backend:latest
+          imagePullPolicy: Always
+          env:
+          - name: MONGODB_LISTEN_ADDR
+            valueFrom:
+              configMapKeyRef:
+                name: db-configmap
+                key: database_addr
+          - name: MONGODB_LISTEN_PORT
+            value: "27017"
+          - name: GRPC_LISTEN_PORT
+            value: "50001"
+          ports:
+            - containerPort: 9000
+            - containerPort: 50001
+      imagePullSecrets:
+        - name: regcred
+---
+
+# Step 6. Kargos Backend ConfigMap
+# This will generate a ConfigMap that stores backend's address
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-configmap
+  namespace: kargos
+data:
+  backend_addr: backend-service
+---
+
+#
+# Step 7. Deploy Kargos agents as DaemonSets
+# This will deploy daemonsets to each nodes.
+# The nodes will now have agents that will be sending data into the backend server.
+#
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kargos-agent
+  namespace: kargos
+  labels:
+    app: kargos-agent
+spec:
+  selector:
+    matchLabels:
+      app: kargos-agent
+  template:
+    metadata:
+      labels:
+        app: kargos-agent
+    spec:
+      containers:
+      - name: kargos-agent
+        image: kargos/kargos-agent:latest
+        imagePullPolicy: Always
+        env:
+        - name: SERVER_IP
+          valueFrom:
+            configMapKeyRef:
+              name: backend-configmap
+              key: backend_addr
+        - name: SERVER_PORT
+          value: "50001"
+        - name: GRPC_DELAY
+          value: "5"
+        securityContext:
+           privileged: false
+#
+# We are going to mount almost all system directories for this daemonset to work.
+# Since this agent uses PID and containerd sock, and network we need this.
+#
+        volumeMounts:
+          - name: run-mount
+            mountPath: /run
+          - name: proc-mount
+            mountPath: /proc
+          - name: sys-mount
+            mountPath: /sys
+      imagePullSecrets:
+        - name: regcred
+      volumes:
+        - name: run-mount
+          hostPath:
+            path: /run
+        - name: proc-mount
+          hostPath:
+            path: /proc
+        - name: sys-mount
+          hostPath:
+            path: /sys

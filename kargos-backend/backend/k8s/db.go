@@ -110,8 +110,8 @@ func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.Recor
 	// last 24 hours
 	filter := bson.M{
 		"$and": []bson.M{
-			bson.M{"name": nodeName},
-			bson.M{"timestamp": bson.M{"$lte": time.Now().Add(-20 * time.Hour)}},
+			{"name": nodeName},
+			{"timestamp": bson.M{"$lte": time.Now().Add(-20 * time.Hour)}},
 		},
 	}
 
@@ -124,9 +124,9 @@ func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.Recor
 	// last 12 hours
 	filter = bson.M{
 		"$and": []bson.M{
-			bson.M{"name": nodeName},
-			bson.M{"timestamp": bson.M{"$lte": time.Now().Add(-10 * time.Hour)}},
-			bson.M{"timestamp": bson.M{"$gte": time.Now().Add(-15 * time.Hour)}},
+			{"name": nodeName},
+			{"timestamp": bson.M{"$lte": time.Now().Add(-10 * time.Hour)}},
+			{"timestamp": bson.M{"$gte": time.Now().Add(-15 * time.Hour)}},
 		},
 	}
 
@@ -139,9 +139,9 @@ func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.Recor
 	// last 6 hours
 	filter = bson.M{
 		"$and": []bson.M{
-			bson.M{"name": nodeName},
-			bson.M{"timestamp": bson.M{"$lte": time.Now().Add(-4 * time.Hour)}},
-			bson.M{"timestamp": bson.M{"$gte": time.Now().Add(-9 * time.Hour)}},
+			{"name": nodeName},
+			{"timestamp": bson.M{"$lte": time.Now().Add(-4 * time.Hour)}},
+			{"timestamp": bson.M{"$gte": time.Now().Add(-9 * time.Hour)}},
 		},
 	}
 
@@ -187,7 +187,7 @@ func (kh K8sHandler) deletePodFromDB() {
 	log.Println("Old data of pods deleted successfully")
 }
 
-func (kh K8sHandler) GetRecordOfPod(namespace string, podName string) (cm.Pod, error) {
+func (kh K8sHandler) GetRecordOfPod(podName string) (cm.Pod, error) {
 	var result = cm.Pod{}
 
 	filter := bson.M{"name": podName}

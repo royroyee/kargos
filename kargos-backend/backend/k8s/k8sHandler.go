@@ -348,9 +348,9 @@ func (kh K8sHandler) GetPodOverview() ([]cm.Pod, error) {
 
 // resources/pod/:name
 // for node/:name
-func (kh K8sHandler) GetPodDetail(namespace string, podName string) (cm.Pod, error) {
+func (kh K8sHandler) GetPodDetail(podName string) (cm.Pod, error) {
 
-	result, err := kh.GetRecordOfPod(namespace, podName)
+	result, err := kh.GetRecordOfPod(podName)
 	if err != nil {
 		return result, err
 	}

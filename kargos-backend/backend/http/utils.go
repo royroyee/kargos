@@ -151,7 +151,7 @@ func (httpHandler HTTPHandler) GetPodOverview(w http.ResponseWriter, r *http.Req
 
 func (httpHandler HTTPHandler) GetPodDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
-	podDetail, err := httpHandler.k8sHandler.GetPodDetail(ps.ByName("namespace"), ps.ByName("name"))
+	podDetail, err := httpHandler.k8sHandler.GetPodDetail(ps.ByName("name"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

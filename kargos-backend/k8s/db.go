@@ -225,11 +225,14 @@ func (kh K8sHandler) StoreEvents(event string) {
 	log.Println("Event stored successfully")
 }
 
-func (kh K8sHandler) GetAlerts() ([]cm.Event, error) {
+func (kh K8sHandler) GetAlerts(page int, perPage int) ([]cm.Event, error) {
 	var result []cm.Event
 	collection := kh.session.DB("kargos").C("event")
 
-	err := collection.Find(bson.M{"type": "Warning"}).All(&result)
+	skip := (page - 1) * perPage
+	limit := perPage
+
+	err := collection.Find(bson.M{"type": "Warning"}).Skip(skip).Limit(limit).Sort("-created").All(&result)
 	if err != nil {
 		log.Println(err)
 		return result, err

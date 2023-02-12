@@ -127,7 +127,7 @@ func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.Recor
 	err := collection.Find(filter).One(&hours24)
 	if err != nil {
 		log.Println(err)
-		return cm.RecordOfNode{}, cm.RecordOfNode{}, cm.RecordOfNode{}
+		return hours24, hours12, hours6
 	}
 
 	// last 12 hours
@@ -142,7 +142,7 @@ func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.Recor
 	err = collection.Find(filter).One(&hours12)
 	if err != nil {
 		log.Println(err)
-		return cm.RecordOfNode{}, cm.RecordOfNode{}, cm.RecordOfNode{}
+		return hours24, hours12, hours6
 	}
 
 	// last 6 hours
@@ -157,7 +157,7 @@ func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.Recor
 	err = collection.Find(filter).One(&hours6)
 	if err != nil {
 		log.Println(err)
-		return cm.RecordOfNode{}, cm.RecordOfNode{}, cm.RecordOfNode{}
+		return hours24, hours12, hours6
 	}
 
 	return hours24, hours12, hours6
@@ -225,6 +225,7 @@ func (kh K8sHandler) StoreEvents(event string) {
 	log.Println("Event stored successfully")
 }
 
+// Only events of Warning , Critical type
 func (kh K8sHandler) GetAlerts(page int, perPage int) ([]cm.Event, error) {
 	var result []cm.Event
 	collection := kh.session.DB("kargos").C("event")
@@ -232,7 +233,14 @@ func (kh K8sHandler) GetAlerts(page int, perPage int) ([]cm.Event, error) {
 	skip := (page - 1) * perPage
 	limit := perPage
 
-	err := collection.Find(bson.M{"type": "Warning"}).Skip(skip).Limit(limit).Sort("-created").All(&result)
+	filter := bson.M{
+		"$or": []bson.M{
+			{"type": "Warning"},
+			{"type": "Critical"},
+		},
+	}
+
+	err := collection.Find(filter).Skip(skip).Limit(limit).Sort("-created").All(&result)
 	if err != nil {
 		log.Println(err)
 		return result, err
@@ -240,11 +248,22 @@ func (kh K8sHandler) GetAlerts(page int, perPage int) ([]cm.Event, error) {
 	return result, nil
 }
 
-func (kh K8sHandler) GetInfo(namespace string) ([]string, error) {
-	var result []string
+// Info : Events other than the warning cirtical type
+func (kh K8sHandler) GetInfo(page int, perPage int) ([]cm.Event, error) {
+	var result []cm.Event
 	collection := kh.session.DB("kargos").C("event")
 
-	err := collection.Find(bson.M{}).All(&result)
+	skip := (page - 1) * perPage
+	limit := perPage
+
+	filter := bson.M{
+		"$nor": []bson.M{
+			{"type": "Warning"},
+			{"type": "Critical"},
+		},
+	}
+
+	err := collection.Find(filter).Skip(skip).Limit(limit).Sort("-created").All(&result)
 	if err != nil {
 		log.Println(err)
 		return result, err

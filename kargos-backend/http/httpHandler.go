@@ -59,8 +59,7 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	r.GET("/resources/persistentvolume/:name", httpHandler.GetPersistentVolumeDetail)
 
 	r.GET("/events/alerts", httpHandler.GetAlerts)
-	// r.GET("/events/alerts/:namespace",
-	//r.GET("/events/info", httpHandler.)
+	r.GET("/events/info", httpHandler.GetInfo)
 
 	log.Fatal(http.ListenAndServe(":9000", r))
 }

@@ -37,6 +37,15 @@ func (kh K8sHandler) DBSession() {
 			kh.deletePodFromDB()
 		}
 	}()
+
+	// Delete old data(event) from DB every 24 hours
+	deleteTicker = time.NewTicker(24 * time.Hour) // test
+	go func() {
+		for range deleteTicker.C {
+			kh.deleteEventFromDB()
+		}
+	}()
+
 	// Wait indefinitely
 	select {}
 }
@@ -201,4 +210,71 @@ func (kh K8sHandler) GetRecordOfPod(podName string) (cm.Pod, error) {
 
 	return result, nil
 
+}
+
+func (kh K8sHandler) StoreEvents(event string) {
+	cloneSession := kh.session.Clone()
+
+	collection := cloneSession.DB("kargos").C("event")
+
+	err := collection.Insert(event)
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Println("Event stored successfully")
+}
+
+func (kh K8sHandler) GetAlerts() ([]cm.Event, error) {
+	var result []cm.Event
+	collection := kh.session.DB("kargos").C("event")
+
+	err := collection.Find(bson.M{"type": "Warning"}).All(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	return result, nil
+}
+
+func (kh K8sHandler) GetInfo(namespace string) ([]string, error) {
+	var result []string
+	collection := kh.session.DB("kargos").C("event")
+
+	err := collection.Find(bson.M{}).All(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	return result, nil
+}
+
+func (kh K8sHandler) StoreEventInDB(event cm.Event) {
+
+	// Use its own session to avoid any concurrent use issues
+	cloneSession := kh.session.Clone()
+
+	collection := cloneSession.DB("kargos").C("event")
+
+	err := collection.Insert(event)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println("Event Data stored successfully")
+
+}
+
+// Delete all event data older than 24 hours
+func (kh K8sHandler) deleteEventFromDB() {
+	collection := kh.session.DB("kargos").C("event")
+
+	cutoff := time.Now().Add(-24 * time.Minute)
+	_, err := collection.RemoveAll(bson.M{"timestamp": bson.M{"$lte": cutoff}})
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	log.Println("Old data of events deleted successfully")
 }

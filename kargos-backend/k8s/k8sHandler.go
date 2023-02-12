@@ -5,11 +5,13 @@ import (
 	cm "github.com/boanlab/kargos/common"
 	"github.com/boanlab/kargos/k8s/kubectl"
 	"gopkg.in/mgo.v2"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
+	"log"
 	"time"
 )
 
@@ -479,4 +481,30 @@ func generateDescribeString(name string, namespace string, resourceType string) 
 	o, _ := flags.ToOptions("kubectl", []string{resourceType, name, "namespace", namespace})
 	ret := o.Run()
 	return ret
+}
+
+func (kh K8sHandler) WatchEvents() {
+
+	var result cm.Event
+
+	watcher, err := kh.K8sClient.CoreV1().Events(metav1.NamespaceAll).Watch(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println("Failed to create event watcher: %v", err)
+	}
+	defer watcher.Stop()
+
+	for watch := range watcher.ResultChan() {
+		event, ok := watch.Object.(*v1.Event)
+		if !ok {
+			log.Println("Received non-Event object")
+			continue
+		}
+		result.Created = event.LastTimestamp.Time.String()
+		result.Type = event.Type
+		result.Name = event.InvolvedObject.Name
+		result.Status = event.Reason
+		result.Message = event.Message
+
+		kh.StoreEventInDB(result)
+	}
 }

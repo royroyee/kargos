@@ -46,7 +46,7 @@ func main() {
 	initHandlers()
 
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
 
 	// Start DB Session
 	go handlers.k8sHandler.DBSession()
@@ -56,6 +56,8 @@ func main() {
 
 	go handlers.grpcHandler.StartGRPCServer()
 	// TODO work on channel for gRPC <-> REST API data
+
+	go handlers.k8sHandler.WatchEvents()
 
 	wg.Wait()
 	log.Println("Kargos Backend finished. Bye.")

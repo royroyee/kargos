@@ -351,3 +351,24 @@ func (httpHandler HTTPHandler) GetPersistentVolumeDetail(w http.ResponseWriter, 
 	w.Write(result)
 	w.WriteHeader(http.StatusOK)
 }
+
+// "/events/alerts"
+// Get Alerts (type = "Warning")
+func (httpHandler HTTPHandler) GetAlerts(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+	alerts, err := httpHandler.k8sHandler.GetAlerts()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := json.Marshal(&alerts)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}

@@ -170,3 +170,12 @@ type Container struct {
 	Namespace string    `json:"image"`
 	Processes []Process `json:"processes"`
 }
+
+// Event
+type Event struct {
+	Created string
+	Type    string
+	Name    string
+	Status  string
+	Message string
+}

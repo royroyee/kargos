@@ -4,6 +4,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"k8s.io/apimachinery/pkg/util/json"
 	"net/http"
+	"strconv"
 )
 
 func (httpHandler HTTPHandler) GetOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -352,11 +353,22 @@ func (httpHandler HTTPHandler) GetPersistentVolumeDetail(w http.ResponseWriter, 
 	w.WriteHeader(http.StatusOK)
 }
 
-// "/events/alerts"
+// "events/alerts?page=<page>&per_page=<per_page>"
 // Get Alerts (type = "Warning")
-func (httpHandler HTTPHandler) GetAlerts(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (httpHandler HTTPHandler) GetAlerts(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
-	alerts, err := httpHandler.k8sHandler.GetAlerts()
+	// Parse the query parameters
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		page = 1
+	}
+	perPage, err := strconv.Atoi(r.URL.Query().Get("per_page"))
+	if err != nil {
+		perPage = 10
+	}
+
+	// Get the data from db
+	alerts, err := httpHandler.k8sHandler.GetAlerts(page, perPage)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

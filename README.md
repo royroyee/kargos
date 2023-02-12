@@ -13,6 +13,7 @@ Kargos allows you to monitor your Kubernetes cluster's resources, performance wi
 	- Controllers
 	- Resources
 	- Metrics
+	- Events
 - Detailed Pod Monitoring
 	- Processes
 	- Resource usage per processes

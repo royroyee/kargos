@@ -168,25 +168,25 @@ func (kh K8sHandler) GetIngressSpecific(name string, namespace string) (cm.Ingre
 	return ret, nil
 }
 
-// controllers/jobs/overview
-func (kh K8sHandler) GetJobsOverview() ([]cm.Job, error) {
-	var result []cm.Job
-	jobList, err := kh.GetJobsList()
-	if err != nil {
-		return []cm.Job{}, err
-	}
-
-	for _, job := range jobList.Items {
-		result = append(result, cm.Job{
-			Name:      job.Name,
-			Namespace: job.Namespace,
-			Failed:    job.Status.Failed,
-			Succeeded: job.Status.Succeeded,
-			Created:   job.CreationTimestamp.Time.String(),
-		})
-	}
-	return result, nil
-}
+//// controllers/jobs/overview
+//func (kh K8sHandler) GetJobsOverview() ([]cm.Job, error) {
+//	var result []cm.Job
+//	jobList, err := kh.GetJobsList()
+//	if err != nil {
+//		return []cm.Job{}, err
+//	}
+//
+//	for _, job := range jobList.Items {
+//		result = append(result, cm.Job{
+//			Name:      job.Name,
+//			Namespace: job.Namespace,
+//			Failed:    job.Status.Failed,
+//			Succeeded: job.Status.Succeeded,
+//			Created:   job.CreationTimestamp.Time.String(),
+//		})
+//	}
+//	return result, nil
+//}
 
 // controllers/job/:namespace/:name
 func (kh K8sHandler) GetJobSpecific(namespace string, name string) (cm.Job, error) {
@@ -477,10 +477,6 @@ func (kh K8sHandler) WatchEvents() {
 	}
 }
 
-func (kh K8sHandler) ControllersOverview() {
-
-}
-
 // overview
 func (kh K8sHandler) GetOverview() (cm.Overview, error) {
 	var result cm.Overview
@@ -506,6 +502,10 @@ func (kh K8sHandler) GetOverview() (cm.Overview, error) {
 func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
 
 	var result []cm.Pod
+	var containerNames []string
+	var containerStats []v1.ContainerStatus
+	//	var containerMetrics *v1beta1.ContainerMetrics
+	var controllerRef metav1.OwnerReference
 
 	podList, err := kh.GetPodList()
 	if err != nil {
@@ -514,30 +514,85 @@ func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
 	}
 
 	for _, pod := range podList.Items {
-		metrics, err := kh.MetricK8sClient.MetricsV1beta1().PodMetricses(metav1.NamespaceAll).Get(context.TODO(), pod.GetName(), metav1.GetOptions{})
+		//	metrics, err := kh.MetricK8sClient.MetricsV1beta1().PodMetricses(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
 		if err != nil {
 			log.Println(err)
 			return result, err
 		}
 
 		// Find Container's name
-		var containerNames []string
-		containerStats := pod.Status.ContainerStatuses
+
+		containerStats = pod.Status.ContainerStatuses
 		for _, containerStat := range containerStats {
 			containerNames = append(containerNames, containerStat.ContainerID)
 		}
+		//	containerMetrics = CheckContainerOfPodMetrics(metrics)
+		controllerRef = CheckOwnerOfPod(pod)
+
 		result = append(result, cm.Pod{
+
 			Name:      pod.GetName(),
 			Namespace: pod.GetNamespace(),
-			CpuUsage:  CheckContainerOfPodMetrics(metrics).Usage.Cpu().MilliValue(),
-			RamUsage:  CheckContainerOfPodMetrics(metrics).Usage.Memory().MilliValue(),
-			Restarts:  GetRestartCount(pod),
-			PodIP:     pod.Status.PodIP,
-			Status:    string(pod.Status.Phase),
+			//	CpuUsage:       containerMetrics.Usage.Cpu().MilliValue(),
+			//	RamUsage:       containerMetrics.Usage.Memory().MilliValue(),
+			Restarts:       GetRestartCount(pod),
+			PodIP:          pod.Status.PodIP,
+			Status:         string(pod.Status.Phase),
+			ControllerKind: controllerRef.Kind,
+			ControllerName: controllerRef.Name,
 
 			ContainerNames: containerNames,
 		})
 	}
+	return result, nil
+}
+
+func (kh K8sHandler) Controller() ([]cm.Controller, error) {
+
+	var result []cm.Controller
+
+	deployList, err := kh.GetDeploymentList()
+	if err != nil {
+		return []cm.Controller{}, err
+	}
+
+	for _, deploy := range deployList.Items {
+		result = append(result, cm.Controller{
+			Name:         deploy.GetName(),
+			Type:         "Deployment",
+			Namespace:    deploy.GetNamespace(),
+			NumberOfPods: *deploy.Spec.Replicas,
+		})
+	}
+
+	jobList, err := kh.GetJobList()
+	if err != nil {
+		return []cm.Controller{}, err
+	}
+
+	for _, job := range jobList.Items {
+		result = append(result, cm.Controller{
+			Name:         job.GetName(),
+			Type:         "Job",
+			Namespace:    job.GetNamespace(),
+			NumberOfPods: 1,
+		})
+	}
+
+	daemonSetList, err := kh.GetDaemonSetList()
+	if err != nil {
+		return []cm.Controller{}, err
+	}
+
+	for _, daemonSet := range daemonSetList.Items {
+		result = append(result, cm.Controller{
+			Name:         daemonSet.GetName(),
+			Type:         "DaemonSet",
+			Namespace:    daemonSet.GetNamespace(),
+			NumberOfPods: 1,
+		})
+	}
+
 	return result, nil
 }
 

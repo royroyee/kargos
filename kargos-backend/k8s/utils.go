@@ -376,7 +376,7 @@ func (kh K8sHandler) GetPersistentVolumeByName(name string) (*corev1.PersistentV
 
 // -- Jobs -- //
 
-func (kh K8sHandler) GetJobsList() (*v1.JobList, error) {
+func (kh K8sHandler) GetJobList() (*v1.JobList, error) {
 	jobs, err := kh.K8sClient.BatchV1().Jobs(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Println(err)
@@ -442,6 +442,14 @@ func CheckContainerOfPodMetrics(metrics *v1beta1.PodMetrics) *v1beta1.ContainerM
 
 	} else {
 		return &v1beta1.ContainerMetrics{}
+	}
+}
+
+func CheckOwnerOfPod(pod corev1.Pod) metav1.OwnerReference {
+	if len(pod.ObjectMeta.OwnerReferences) > 0 {
+		return pod.ObjectMeta.OwnerReferences[0]
+	} else {
+		return metav1.OwnerReference{}
 	}
 }
 

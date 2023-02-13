@@ -193,12 +193,12 @@ type PodStatus struct {
 }
 
 // Controllers
-type Controllers struct {
-	Name        string   `json:"name"`
-	Type        string   `json:"type"`
-	Namespace   string   `json:"namespace"`
-	Replicasets int      `json:"replicasets"`
-	Pods        []string `json:"pods"`
+type Controller struct {
+	Name         string   `json:"name"`
+	Type         string   `json:"type"`
+	Namespace    string   `json:"namespace"`
+	NumberOfPods int32    `json:"number_of_pods"`
+	Pods         []string `json:"pods"`
 }
 
 // Pod
@@ -210,7 +210,10 @@ type Pod struct {
 	Restarts  int32  `json:"restarts"`
 	PodIP     string `json:"pod_ip"`
 	Status    string `json:"status"`
-	Image     string `json:"image""`
+	Image     string `json:"image"`
+
+	ControllerKind string `json:"controller_kind"`
+	ControllerName string `json:"controller_name"`
 
 	// Container struct
 	Containers     []Container `json:"containers"`

@@ -164,24 +164,24 @@ func (httpHandler HTTPHandler) GetNamespaceDetail(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusOK)
 }
 
-func (httpHandler HTTPHandler) GetJobsOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-
-	jobOverview, err := httpHandler.k8sHandler.GetJobsOverview()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	result, err := json.Marshal(&jobOverview)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(result)
-	w.WriteHeader(http.StatusOK)
-}
+//func (httpHandler HTTPHandler) GetJobsOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+//
+//	jobOverview, err := httpHandler.k8sHandler.GetJobsOverview()
+//	if err != nil {
+//		http.Error(w, err.Error(), http.StatusBadRequest)
+//		return
+//	}
+//
+//	result, err := json.Marshal(&jobOverview)
+//	if err != nil {
+//		http.Error(w, err.Error(), http.StatusBadRequest)
+//		return
+//	}
+//
+//	w.Header().Set("Content-Type", "application/json")
+//	w.Write(result)
+//	w.WriteHeader(http.StatusOK)
+//}
 
 // controllers/job/:namespace/:name
 func (httpHandler HTTPHandler) GetJobSpecific(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -422,6 +422,30 @@ func (httpHandler HTTPHandler) GetNodeOverview(w http.ResponseWriter, r *http.Re
 
 	nodeOverview, err := httpHandler.k8sHandler.GetNodeOverview(page, perPage)
 	result, err := json.Marshal(&nodeOverview)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (httpHandler HTTPHandler) GetControllers(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+
+	// Parse the query parameters
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		page = 1
+	}
+	perPage, err := strconv.Atoi(r.URL.Query().Get("per_page"))
+	if err != nil {
+		perPage = 10
+	}
+
+	controller, err := httpHandler.k8sHandler.GetControllers(page, perPage)
+	result, err := json.Marshal(&controller)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

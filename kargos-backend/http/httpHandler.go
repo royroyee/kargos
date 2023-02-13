@@ -39,6 +39,9 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	r.GET("/resources/pods/overview", httpHandler.GetPodOverview)
 	r.GET("/resources/pod/:name", httpHandler.GetPodDetail)
 
+	// Controllers
+	r.GET("/controllers", httpHandler.GetControllers)
+
 	//
 	//// node
 	//r.GET("/nodes/overview", httpHandler.GetNodeOverview)

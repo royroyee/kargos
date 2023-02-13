@@ -19,7 +19,7 @@ func (kh K8sHandler) DBSession() {
 	go func() {
 		for range insertTicker.C {
 			kh.storeNodeInDB()
-			kh.storeDeploymentInDB()
+			kh.storeControllerInDB()
 		}
 	}()
 
@@ -383,52 +383,67 @@ func (kh K8sHandler) deleteEventFromDB() {
 	log.Println("Old data of events deleted successfully")
 }
 
-func (kh K8sHandler) storeDeploymentInDB() {
-	deployList, err := kh.GetDeploymentOverview() // Only metrics of node
+func (kh K8sHandler) storeControllerInDB() {
+	controllerList, err := kh.Controller()
 	if err != nil {
 		return
 	}
 
-	kh.deleteDeploymentFromDB(deployList)
+	kh.deleteControllerFromDB(controllerList)
 
 	// Use its own session to avoid any concurrent use issues
 	cloneSession := kh.session.Clone()
 	defer cloneSession.Close()
 
-	collection := cloneSession.DB("kargos").C("deployment")
+	collection := cloneSession.DB("kargos").C("controller")
 
 	bulk := collection.Bulk()
-	for _, deploy := range deployList {
-		bulk.Upsert(bson.M{"name": deploy.Name}, deploy)
+	for _, controller := range controllerList {
+		bulk.Upsert(bson.M{"name": controller.Name, "namespace": controller.Namespace}, controller)
 	}
-	_, err = bulk.Run()
+
+	result, err := bulk.Run()
 	if err != nil {
 		log.Println(err)
-		return
 	}
 
-	log.Println("Deployment Data stored successfully")
+	log.Println("Controller Data stored successfully : ", result)
 }
 
-func (kh K8sHandler) deleteDeploymentFromDB(deployList []cm.Deployment) {
+func (kh K8sHandler) deleteControllerFromDB(controllerList []cm.Controller) {
 
 	cloneSession := kh.session.Clone()
 	defer cloneSession.Close()
 
-	collection := cloneSession.DB("kargos").C("deployment")
+	collection := cloneSession.DB("kargos").C("controller")
 
-	// Get the list of deployment names from the deployList
-	deploymentNames := make([]string, 0)
-	for _, deploy := range deployList {
-		deploymentNames = append(deploymentNames, deploy.Name)
+	// Get the list of controller names from the controllerList
+	controllerNames := make([]string, 0)
+	for _, controller := range controllerList {
+		controllerNames = append(controllerNames, controller.Name)
 	}
 
-	// Delete the deployment from the database if it's not in the deploymentNames list
-	_, err := collection.RemoveAll(bson.M{"name": bson.M{"$nin": deploymentNames}})
+	// Delete the controller from the database if it's not in the controllerNames list
+	_, err := collection.RemoveAll(bson.M{"name": bson.M{"$nin": controllerNames}})
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
 	log.Println("Deployment Data deleted successfully")
+}
+
+func (kh K8sHandler) GetControllers(page int, perPage int) ([]cm.Controller, error) {
+	var result []cm.Controller
+	collection := kh.session.DB("kargos").C("controller")
+
+	skip := (page - 1) * perPage
+	limit := perPage
+
+	err := collection.Find(bson.M{}).Skip(skip).Limit(limit).Sort("namespace").All(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	return result, nil
 }

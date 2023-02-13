@@ -277,44 +277,6 @@ func (httpHandler HTTPHandler) GetServiceDetail(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusOK)
 }
 
-func (httpHandler HTTPHandler) GetPersistentVolumeOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-
-	pvOverview, err := httpHandler.k8sHandler.GetPersistentVolumeOverview()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	result, err := json.Marshal(&pvOverview)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(result)
-	w.WriteHeader(http.StatusOK)
-}
-
-func (httpHandler HTTPHandler) GetPersistentVolumeDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-
-	pvDetail, err := httpHandler.k8sHandler.GetPersistentVolumeDetail(ps.ByName("name"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	result, err := json.Marshal(&pvDetail)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(result)
-	w.WriteHeader(http.StatusOK)
-}
-
 // "events/alerts?page=<page>&per_page=<per_page>"
 // Get Alerts (type = "Warning", "Critical")
 func (httpHandler HTTPHandler) GetAlerts(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
@@ -446,6 +408,30 @@ func (httpHandler HTTPHandler) GetControllers(w http.ResponseWriter, r *http.Req
 
 	controller, err := httpHandler.k8sHandler.GetControllers(page, perPage)
 	result, err := json.Marshal(&controller)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (httpHandler HTTPHandler) GetPersistentVolume(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+
+	// Parse the query parameters
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		page = 1
+	}
+	perPage, err := strconv.Atoi(r.URL.Query().Get("per_page"))
+	if err != nil {
+		perPage = 10
+	}
+
+	pv, err := httpHandler.k8sHandler.GetPersistentVolume(page, perPage)
+	result, err := json.Marshal(&pv)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

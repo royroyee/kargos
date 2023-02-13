@@ -389,53 +389,6 @@ func (kh K8sHandler) GetServiceDetail(namespace string, name string) (cm.Service
 	return result, err
 }
 
-func (kh K8sHandler) GetPersistentVolumeOverview() ([]cm.PersistentVolume, error) {
-	var result []cm.PersistentVolume
-
-	pvs, err := kh.GetPersistentVolumeList()
-	if err != nil {
-		return result, err
-	}
-
-	for _, pv := range pvs.Items {
-		result = append(result, cm.PersistentVolume{
-			Name:          pv.GetName(),
-			Capacity:      pv.Spec.Capacity,
-			AccessModes:   pv.Spec.AccessModes,
-			ReclaimPolicy: pv.Spec.PersistentVolumeReclaimPolicy,
-			Status:        string(pv.Status.Phase),
-			Claim:         GetPersistentVolumeClaim(&pv),
-			StorageClass:  pv.Spec.StorageClassName,
-		})
-	}
-	return result, err
-}
-
-func (kh K8sHandler) GetPersistentVolumeDetail(name string) (cm.PersistentVolume, error) {
-	var result cm.PersistentVolume
-
-	pv, err := kh.GetPersistentVolumeByName(name)
-	if err != nil {
-		return result, err
-	}
-
-	result = cm.PersistentVolume{
-		Name:          pv.GetName(),
-		Capacity:      pv.Spec.Capacity,
-		AccessModes:   pv.Spec.AccessModes,
-		ReclaimPolicy: pv.Spec.PersistentVolumeReclaimPolicy,
-		Status:        string(pv.Status.Phase),
-		Claim:         GetPersistentVolumeClaim(pv),
-		StorageClass:  pv.Spec.StorageClassName,
-		Reason:        pv.Status.Reason,
-		MountOption:   pv.Spec.MountOptions,
-		Labels:        pv.Labels,
-		Created:       pv.CreationTimestamp.Time.String(),
-	}
-
-	return result, err
-}
-
 // generateDescribeString generates string that represent kubernetes resource like "kubectl describe"
 // The code originated from kubectl source code's kubectl/pkg/cmd/cmd.go
 func generateDescribeString(name string, namespace string, resourceType string) string {
@@ -596,35 +549,23 @@ func (kh K8sHandler) Controller() ([]cm.Controller, error) {
 	return result, nil
 }
 
-// resources/pods/overview
-//func (kh K8sHandler) GetPodOverview() ([]cm.Pod, error) {
-//	var result []cm.Pod
-//
-//	podList, err := kh.GetPodList()
-//	if err != nil {
-//		return []cm.Pod{}, err
-//	}
-//
-//	for _, pod := range podList.Items {
-//		// Find Container's name
-//		var containerNames []string
-//		containerStats := pod.Status.ContainerStatuses
-//		for _, containerStat := range containerStats {
-//			containerNames = append(containerNames, containerStat.ContainerID)
-//		}
-//
-//		result = append(result, cm.Pod{
-//			Name:             pod.GetName(),
-//			Namespace:        pod.GetNamespace(),
-//			PodIP:            pod.Status.PodIP,
-//			Status:           string(pod.Status.Phase),
-//			ServiceConnected: pod.Spec.EnableServiceLinks,
-//			Restarts:         GetRestartCount(pod),
-//			Image:            CheckContainerOfPod(pod).Image,
-//			Age:              pod.CreationTimestamp.String(),
-//			ContainerNames:   containerNames,
-//			Timestamp:        time.Now(), // not pod's creation time , just for db query
-//		})
-//	}
-//	return result, nil
-//}
+func (kh K8sHandler) PersistentVolume() ([]cm.PersistentVolume, error) {
+	var result []cm.PersistentVolume
+
+	pvs, err := kh.GetPersistentVolumeList()
+	if err != nil {
+		return result, err
+	}
+
+	for _, pv := range pvs.Items {
+		result = append(result, cm.PersistentVolume{
+			Name:         pv.GetName(),
+			Capacity:     pv.Spec.Capacity.Storage().MilliValue() / 1024 / 1024 / 1000,
+			AccessModes:  pv.Spec.AccessModes,
+			Claim:        GetPersistentVolumeClaim(&pv),
+			StorageClass: pv.Spec.StorageClassName,
+			Status:       string(pv.Status.Phase),
+		})
+	}
+	return result, err
+}

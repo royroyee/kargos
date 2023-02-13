@@ -140,19 +140,19 @@ type DaemonSet struct {
 }
 
 // Persistent Volume
-type PersistentVolume struct {
-	Name          string                           `json:"name"`
-	Capacity      v1.ResourceList                  `json:"capacity"`
-	AccessModes   []v1.PersistentVolumeAccessMode  `json:"access_modes"`
-	ReclaimPolicy v1.PersistentVolumeReclaimPolicy `json:"reclaim_policy"`
-	Status        string                           `json:"status"`
-	Claim         string                           `json:"claim"`
-	StorageClass  string                           `json:"storage_class"`
-	Reason        string                           `json:"reason"`
-	MountOption   []string                         `json:"mount_option"`
-	Labels        map[string]string                `json:"labels"`
-	Created       string                           `json:"created"`
-}
+//type PersistentVolume struct {
+//	Name          string                           `json:"name"`
+//	Capacity      v1.ResourceList                  `json:"capacity"`
+//	AccessModes   []v1.PersistentVolumeAccessMode  `json:"access_modes"`
+//	ReclaimPolicy v1.PersistentVolumeReclaimPolicy `json:"reclaim_policy"`
+//	Status        string                           `json:"status"`
+//	Claim         string                           `json:"claim"`
+//	StorageClass  string                           `json:"storage_class"`
+//	Reason        string                           `json:"reason"`
+//	MountOption   []string                         `json:"mount_option"`
+//	Labels        map[string]string                `json:"labels"`
+//	Created       string                           `json:"created"`
+//}
 
 // Process (Infra agent)
 type Process struct {
@@ -237,4 +237,13 @@ type Node struct {
 	DiskAllocated float64 `json:"disk_allocated"`
 	NetworkUsage  int     `json:"network_usage"`
 	IP            string  `json:"ip"`
+}
+
+type PersistentVolume struct {
+	Name         string                          `json:"name"`
+	Capacity     int64                           `json:"capacity"`
+	AccessModes  []v1.PersistentVolumeAccessMode `json:"access_modes"`
+	Claim        string                          `json:"claim"`
+	StorageClass string                          `json:"storage_class"`
+	Status       string                          `json:"status"`
 }

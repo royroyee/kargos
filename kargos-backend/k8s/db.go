@@ -20,6 +20,7 @@ func (kh K8sHandler) DBSession() {
 		for range insertTicker.C {
 			kh.storeNodeInDB()
 			kh.storeControllerInDB()
+			kh.storePersistentVolumeInDB()
 		}
 	}()
 
@@ -55,7 +56,7 @@ func (kh K8sHandler) DBSession() {
 func GetDBSession() *mgo.Session {
 	log.Println("Create DB Session .. ")
 	session, err := mgo.Dial("mongodb://db-service:27017") // db-service is name of mongodb service(kubernetes)
-	//session, err := mgo.Dial("mongodb://localhost:27017")
+	// session, err := mgo.Dial("mongodb://localhost:27017")
 
 	//// Check environment variables for mongodb.
 	//mongodbIP := os.Getenv("MONGODB_LISTEN_ADDR")
@@ -430,7 +431,7 @@ func (kh K8sHandler) deleteControllerFromDB(controllerList []cm.Controller) {
 		return
 	}
 
-	log.Println("Deployment Data deleted successfully")
+	log.Println("Controller Data deleted successfully")
 }
 
 func (kh K8sHandler) GetControllers(page int, perPage int) ([]cm.Controller, error) {
@@ -441,6 +442,71 @@ func (kh K8sHandler) GetControllers(page int, perPage int) ([]cm.Controller, err
 	limit := perPage
 
 	err := collection.Find(bson.M{}).Skip(skip).Limit(limit).Sort("namespace").All(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	return result, nil
+}
+
+func (kh K8sHandler) storePersistentVolumeInDB() {
+	pvList, err := kh.PersistentVolume()
+	if err != nil {
+		return
+	}
+
+	kh.deletePersistentVolumeFromDB(pvList)
+
+	// Use its own session to avoid any concurrent use issues
+	cloneSession := kh.session.Clone()
+	defer cloneSession.Close()
+
+	collection := cloneSession.DB("kargos").C("persistentvolume")
+
+	bulk := collection.Bulk()
+	for _, pv := range pvList {
+		bulk.Upsert(bson.M{"name": pv.Name, "claim": pv.Claim}, pv)
+	}
+
+	result, err := bulk.Run()
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Println("Persistent Volume Data stored successfully : ", result)
+}
+
+func (kh K8sHandler) deletePersistentVolumeFromDB(pvList []cm.PersistentVolume) {
+
+	cloneSession := kh.session.Clone()
+	defer cloneSession.Close()
+
+	collection := cloneSession.DB("kargos").C("controller")
+
+	// Get the list of persistent volume names from the pvList
+	pvNames := make([]string, 0)
+	for _, pv := range pvList {
+		pvNames = append(pvNames, pv.Name)
+	}
+
+	// Delete the controller from the database if it's not in the controllerNames list
+	_, err := collection.RemoveAll(bson.M{"name": bson.M{"$nin": pvNames}})
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println("Persistent Volume Data deleted successfully")
+}
+
+func (kh K8sHandler) GetPersistentVolume(page int, perPage int) ([]cm.PersistentVolume, error) {
+	var result []cm.PersistentVolume
+	collection := kh.session.DB("kargos").C("persistentvolume")
+
+	skip := (page - 1) * perPage
+	limit := perPage
+
+	err := collection.Find(bson.M{}).Skip(skip).Limit(limit).Sort("claim").All(&result)
 	if err != nil {
 		log.Println(err)
 		return result, err

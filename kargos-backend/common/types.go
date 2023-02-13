@@ -3,66 +3,65 @@ package common
 import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
+//// Overview main
+//type Overview struct {
+//	Version    string `json:"kubernetes_version"` // kubernetes version
+//	TotalNodes int    `json:"total_nodes"`        // total nodes
+//	Created    string `json:"created"`            // created
+//
+//	Tabs map[string]int // total_resources ~ daemon_sets
+//
+//	TopNamespaces []string `json:"top_namespaces"`
+//	AlertCount    int      `json:"alert_count"` // warning 등의 이벤트만
+//}
+
 // Overview main
-type Home struct {
-	Version    string `json:"kubernetes_version"` // kubernetes version
-	TotalNodes int    `json:"total_nodes"`        // total nodes
-	Created    string `json:"created"`            // created
-
-	Tabs map[string]int // total_resources ~ daemon_sets
-
-	TopNamespaces []string `json:"top_namespaces"`
-	AlertCount    int      `json:"alert_count"` // warning 등의 이벤트만
+type Overview struct {
+	Version    string     `json:"kubernetes_version"` // kubernetes version
+	NodeStatus NodeStatus `json:"node_status"`
+	PodStatus  PodStatus  `json:"pod_status"`
 }
 
-// Alert
-type Alert struct {
-	tag     string `json:"tag"`
-	message string `json:"message"`
-	uuid    string `json:"uuid"`
-}
+//// Node
+//type Node struct {
+//	Name          string                  `json:"name"`
+//	CpuUsage      float64                 `json:"cpu_usage"`
+//	RamUsage      float64                 `json:"ram_usage"`
+//	DiskAllocated float64                 `json:"disk_allocated"`
+//	IP            string                  `json:"ip"`
+//	Ready         string                  `json:"ready"`
+//	OsImage       string                  `json:"os_image"`
+//	Pods          []Pod                   `json:"pods"`
+//	Record        map[string]RecordOfNode `json:"record"`
+//}
+//
+//// NodeMetric (DB ( last 24 hours etc ..)
+//type RecordOfNode struct {
+//	Name          string    `json:"name"`
+//	CpuUsage      float64   `json:"cpu_usage"`
+//	RamUsage      float64   `json:"ram_usage"`
+//	DiskAllocated float64   `json:"disk_allocated"`
+//	Timestamp     time.Time `json:"timestamp"`
+//}
 
-// Node
-type Node struct {
-	Name          string                  `json:"name"`
-	CpuUsage      float64                 `json:"cpu_usage"`
-	RamUsage      float64                 `json:"ram_usage"`
-	DiskAllocated float64                 `json:"disk_allocated"`
-	IP            string                  `json:"ip"`
-	Ready         string                  `json:"ready"`
-	OsImage       string                  `json:"os_image"`
-	Pods          []Pod                   `json:"pods"`
-	Record        map[string]RecordOfNode `json:"record"`
-}
-
-// NodeMetric (DB ( last 24 hours etc ..)
-type RecordOfNode struct {
-	Name          string    `json:"name"`
-	CpuUsage      float64   `json:"cpu_usage"`
-	RamUsage      float64   `json:"ram_usage"`
-	DiskAllocated float64   `json:"disk_allocated"`
-	Timestamp     time.Time `json:"timestamp"`
-}
-
-// Pod
-type Pod struct {
-	Name             string    `json:"name"`
-	Namespace        string    `json:"namespace"`
-	PodIP            string    `json:"pod_ip"`
-	Status           string    `json:"status"` // Running  or Pending
-	ServiceConnected *bool     `json:"service_connected"`
-	Restarts         int32     `json:"restarts"`
-	Image            string    `json:"image"`
-	Age              string    `json:"age"`
-	Timestamp        time.Time `json:"timestamp"` // not pod's created , just for db query
-
-	// Container struct
-	Containers     []Container `json:"containers"`
-	ContainerNames []string
-}
+//// Pod
+//type Pod struct {
+//	Name             string    `json:"name"`
+//	Namespace        string    `json:"namespace"`
+//	PodIP            string    `json:"pod_ip"`
+//	Status           string    `json:"status"` // Running  or Pending
+//	ServiceConnected *bool     `json:"service_connected"`
+//	Restarts         int32     `json:"restarts"`
+//	Image            string    `json:"image"`
+//	Age              string    `json:"age"`
+//	Timestamp        time.Time `json:"timestamp"` // not pod's created , just for db query
+//
+//	// Container struct
+//	Containers     []Container `json:"containers"`
+//	ContainerNames []string
+//}
 
 // Deployment
 type Deployment struct {
@@ -141,19 +140,19 @@ type DaemonSet struct {
 }
 
 // Persistent Volume
-type PersistentVolume struct {
-	Name          string                           `json:"name"`
-	Capacity      v1.ResourceList                  `json:"capacity"`
-	AccessModes   []v1.PersistentVolumeAccessMode  `json:"access_modes"`
-	ReclaimPolicy v1.PersistentVolumeReclaimPolicy `json:"reclaim_policy"`
-	Status        string                           `json:"status"`
-	Claim         string                           `json:"claim"`
-	StorageClass  string                           `json:"storage_class"`
-	Reason        string                           `json:"reason"`
-	MountOption   []string                         `json:"mount_option"`
-	Labels        map[string]string                `json:"labels"`
-	Created       string                           `json:"created"`
-}
+//type PersistentVolume struct {
+//	Name          string                           `json:"name"`
+//	Capacity      v1.ResourceList                  `json:"capacity"`
+//	AccessModes   []v1.PersistentVolumeAccessMode  `json:"access_modes"`
+//	ReclaimPolicy v1.PersistentVolumeReclaimPolicy `json:"reclaim_policy"`
+//	Status        string                           `json:"status"`
+//	Claim         string                           `json:"claim"`
+//	StorageClass  string                           `json:"storage_class"`
+//	Reason        string                           `json:"reason"`
+//	MountOption   []string                         `json:"mount_option"`
+//	Labels        map[string]string                `json:"labels"`
+//	Created       string                           `json:"created"`
+//}
 
 // Process (Infra agent)
 type Process struct {
@@ -171,11 +170,80 @@ type Container struct {
 	Processes []Process `json:"processes"`
 }
 
+// 02.11 ~ //
+
 // Event
 type Event struct {
-	Created string
-	Type    string
-	Name    string
-	Status  string
-	Message string
+	Created string `json:"created"`
+	Type    string `json:"type"`
+	Name    string `json:"name"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+type NodeStatus struct {
+	NotReady int `json:"not_ready""`
+	Ready    int `json:"ready"`
+}
+
+type PodStatus struct {
+	Error   int `json:"error"`
+	Pending int `json:"pending"`
+	Running int `json:"running"`
+}
+
+// Controllers
+type Controller struct {
+	Name         string   `json:"name"`
+	Type         string   `json:"type"`
+	Namespace    string   `json:"namespace"`
+	NumberOfPods int32    `json:"number_of_pods"`
+	Pods         []string `json:"pods"`
+}
+
+// Pod
+type Pod struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	CpuUsage  int64  `json:"cpuUsage"`
+	RamUsage  int64  `json:"ramUsage"`
+	Restarts  int32  `json:"restarts"`
+	PodIP     string `json:"pod_ip"`
+	Status    string `json:"status"`
+	Image     string `json:"image"`
+
+	ControllerKind string `json:"controller_kind"`
+	ControllerName string `json:"controller_name"`
+
+	// Container struct
+	Containers     []Container `json:"containers"`
+	ContainerNames []string
+}
+
+type PodOverview struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	CpuUsage  int64  `json:"cpuUsage"`
+	RamUsage  int64  `json:"ramUsage"`
+	Restarts  int32  `json:"restarts"`
+	PodIP     string `json:"pod_ip"`
+	Status    string `json:"status"`
+}
+
+type Node struct {
+	Name          string  `json:"name"`
+	CpuUsage      float64 `json:"cpu_usage"`
+	RamUsage      float64 `json:"ram_usage"`
+	DiskAllocated float64 `json:"disk_allocated"`
+	NetworkUsage  int     `json:"network_usage"`
+	IP            string  `json:"ip"`
+}
+
+type PersistentVolume struct {
+	Name         string                          `json:"name"`
+	Capacity     int64                           `json:"capacity"`
+	AccessModes  []v1.PersistentVolumeAccessMode `json:"access_modes"`
+	Claim        string                          `json:"claim"`
+	StorageClass string                          `json:"storage_class"`
+	Status       string                          `json:"status"`
 }

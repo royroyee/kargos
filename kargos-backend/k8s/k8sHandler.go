@@ -12,7 +12,6 @@ import (
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"log"
-	"time"
 )
 
 // K8s
@@ -42,81 +41,48 @@ func NewK8sHandler() *K8sHandler {
 	return kh
 }
 
-// for Overview/main
-func (kh K8sHandler) GetHome() (cm.Home, error) {
-	var result cm.Home
-
-	totalResources, namespaces, deployments, pods, ingresses, services, persistentVolumes, jobs, daemonSets, err := kh.GetTotalResources()
-
-	if err != nil {
-		return cm.Home{}, err
-	}
-	result = cm.Home{
-		Version:    kh.GetKubeVersion(),
-		TotalNodes: kh.GetTotalNodes(),
-		Created:    kh.GetCreatedOfCluster(),
-		Tabs: map[string]int{
-			"TotalResources":   totalResources,
-			"Namespaces":       namespaces,
-			"Deployments":      deployments,
-			"Pods":             pods,
-			"Ingresses":        ingresses,
-			"Services":         services,
-			"PersistentVolume": persistentVolumes,
-			"Jobs":             jobs,
-			"DaemonSets":       daemonSets,
-		},
-
-		// TODO
-		TopNamespaces: kh.GetTopNamespaces(),
-		AlertCount:    kh.GetAlertsCount(),
-	}
-
-	return result, nil
-}
-
-// for nodes/overview
-func (kh K8sHandler) GetNodeOverview() ([]cm.Node, error) {
-	result, err := kh.GetNodeList()
-	return result, err
-}
-
-// for node/:name
-func (kh K8sHandler) GetNodeDetail(nodeName string) (cm.Node, error) {
-	var result cm.Node
-
-	node, err := kh.GetNode(nodeName)
-	if err != nil {
-		return cm.Node{}, err
-	}
-
-	cpuUsage, ramUsage, diskAllocated := kh.GetMetricUsage(*node)
-
-	hours24, hours12, hours6 := kh.GetRecordOfNode(nodeName)
-
-	podList, err := kh.GetPodsByNode(nodeName)
-
-	if err != nil {
-		return cm.Node{}, err
-	}
-
-	result = cm.Node{
-		Name:          nodeName,
-		CpuUsage:      cpuUsage,
-		RamUsage:      ramUsage,
-		DiskAllocated: diskAllocated,
-		IP:            node.Status.Addresses[0].Address,
-		Ready:         string(node.Status.Conditions[0].Status),
-		OsImage:       node.Status.NodeInfo.OSImage,
-		Pods:          kh.TransferPod(podList),
-		Record: map[string]cm.RecordOfNode{
-			"24hours": hours24,
-			"12hours": hours12,
-			"6hours":  hours6,
-		},
-	}
-	return result, nil
-}
+//// for nodes/overview
+//func (kh K8sHandler) GetNodeOverview() ([]cm.Node, error) {
+//	result, err := kh.GetNodeList()
+//	return result, err
+//}
+//
+//// for node/:name
+//func (kh K8sHandler) GetNodeDetail(nodeName string) (cm.Node, error) {
+//	var result cm.Node
+//
+//	node, err := kh.GetNode(nodeName)
+//	if err != nil {
+//		return cm.Node{}, err
+//	}
+//
+//	cpuUsage, ramUsage, diskAllocated := kh.GetMetricUsage(*node)
+//
+//	hours24, hours12, hours6 := kh.GetRecordOfNode(nodeName)
+//
+//	podList, err := kh.GetPodsByNode(nodeName)
+//
+//	if err != nil {
+//		return cm.Node{}, err
+//	}
+//
+//	result = cm.Node{
+//		Name:          nodeName,
+//		CpuUsage:      cpuUsage,
+//		RamUsage:      ramUsage,
+//		DiskAllocated: diskAllocated,
+//		IP:            node.Status.Addresses[0].Address,
+//		Ready:         string(node.Status.Conditions[0].Status),
+//		OsImage:       node.Status.NodeInfo.OSImage,
+//		Pods:          kh.TransferPod(podList),
+//		Record: map[string]cm.RecordOfNode{
+//			"24hours": hours24,
+//			"12hours": hours12,
+//			"6hours":  hours6,
+//		},
+//	}
+//	return result, nil
+//}
 
 // controllers/deployments/overview
 func (kh K8sHandler) GetDeploymentOverview() ([]cm.Deployment, error) {
@@ -202,25 +168,25 @@ func (kh K8sHandler) GetIngressSpecific(name string, namespace string) (cm.Ingre
 	return ret, nil
 }
 
-// controllers/jobs/overview
-func (kh K8sHandler) GetJobsOverview() ([]cm.Job, error) {
-	var result []cm.Job
-	jobList, err := kh.GetJobsList()
-	if err != nil {
-		return []cm.Job{}, err
-	}
-
-	for _, job := range jobList.Items {
-		result = append(result, cm.Job{
-			Name:      job.Name,
-			Namespace: job.Namespace,
-			Failed:    job.Status.Failed,
-			Succeeded: job.Status.Succeeded,
-			Created:   job.CreationTimestamp.Time.String(),
-		})
-	}
-	return result, nil
-}
+//// controllers/jobs/overview
+//func (kh K8sHandler) GetJobsOverview() ([]cm.Job, error) {
+//	var result []cm.Job
+//	jobList, err := kh.GetJobsList()
+//	if err != nil {
+//		return []cm.Job{}, err
+//	}
+//
+//	for _, job := range jobList.Items {
+//		result = append(result, cm.Job{
+//			Name:      job.Name,
+//			Namespace: job.Namespace,
+//			Failed:    job.Status.Failed,
+//			Succeeded: job.Status.Succeeded,
+//			Created:   job.CreationTimestamp.Time.String(),
+//		})
+//	}
+//	return result, nil
+//}
 
 // controllers/job/:namespace/:name
 func (kh K8sHandler) GetJobSpecific(namespace string, name string) (cm.Job, error) {
@@ -316,65 +282,65 @@ func (kh K8sHandler) GetNamespaceDetail(name string) (cm.Namespace, error) {
 }
 
 // resources/pods/overview
-func (kh K8sHandler) GetPodOverview() ([]cm.Pod, error) {
-	var result []cm.Pod
+//func (kh K8sHandler) GetPodOverview() ([]cm.Pod, error) {
+//	var result []cm.Pod
+//
+//	podList, err := kh.GetPodList()
+//	if err != nil {
+//		return []cm.Pod{}, err
+//	}
+//
+//	for _, pod := range podList.Items {
+//		// Find Container's name
+//		var containerNames []string
+//		containerStats := pod.Status.ContainerStatuses
+//		for _, containerStat := range containerStats {
+//			containerNames = append(containerNames, containerStat.ContainerID)
+//		}
+//
+//		result = append(result, cm.Pod{
+//			Name:             pod.GetName(),
+//			Namespace:        pod.GetNamespace(),
+//			PodIP:            pod.Status.PodIP,
+//			Status:           string(pod.Status.Phase),
+//			ServiceConnected: pod.Spec.EnableServiceLinks,
+//			Restarts:         GetRestartCount(pod),
+//			Image:            CheckContainerOfPod(pod).Image,
+//			Age:              pod.CreationTimestamp.String(),
+//			ContainerNames:   containerNames,
+//			Timestamp:        time.Now(), // not pod's creation time , just for db query
+//		})
+//	}
+//	return result, nil
+//}
 
-	podList, err := kh.GetPodList()
-	if err != nil {
-		return []cm.Pod{}, err
-	}
-
-	for _, pod := range podList.Items {
-		// Find Container's name
-		var containerNames []string
-		containerStats := pod.Status.ContainerStatuses
-		for _, containerStat := range containerStats {
-			containerNames = append(containerNames, containerStat.ContainerID)
-		}
-
-		result = append(result, cm.Pod{
-			Name:             pod.GetName(),
-			Namespace:        pod.GetNamespace(),
-			PodIP:            pod.Status.PodIP,
-			Status:           string(pod.Status.Phase),
-			ServiceConnected: pod.Spec.EnableServiceLinks,
-			Restarts:         GetRestartCount(pod),
-			Image:            CheckContainerOfPod(pod),
-			Age:              pod.CreationTimestamp.String(),
-			ContainerNames:   containerNames,
-			Timestamp:        time.Now(), // not pod's creation time , just for db query
-		})
-	}
-	return result, nil
-}
-
-// resources/pod/:name
-// for node/:name
-func (kh K8sHandler) GetPodDetail(podName string) (cm.Pod, error) {
-
-	result, err := kh.GetRecordOfPod(podName)
-	if err != nil {
-		return result, err
-	}
-
-	//pod, err := kh.GetPodByName(namespace, podName)
-	//if err != nil {
-	//	return cm.Pod{}, errs
-	//}
-	//result = cm.Pod{
-	//	Name:             pod.GetName(),
-	//	Namespace:        pod.GetNamespace(),
-	//	PodIP:            pod.Status.PodIP,
-	//	Status:           string(pod.Status.Phase),
-	//	ServiceConnected: pod.Spec.EnableServiceLinks,
-	//	Restarts:         GetRestartCount(*pod),
-	//	Image:            pod.Status.ContainerStatuses[0].Image,
-	//	Age:              pod.CreationTimestamp.String(),
-	//}
-	//return result, nil
-
-	return result, nil
-}
+//// resources/pod/:name
+//// for node/:name
+//func (kh K8sHandler) GetPodDetail(podName string) (cm.Pod, error) {
+//
+//	result, err := kh.GetRecordOfPod(podName)
+//	if err != nil {
+//		return result, err
+//	}
+//
+//	//pod, err := kh.GetPodByName(namespace, podName)
+//	//if err != nil {
+//	//	return cm.Pod{}, errs
+//	//}
+//	//result = cm.Pod{
+//	//	Name:             pod.GetName(),
+//	//	Namespace:        pod.GetNamespace(),
+//	//	PodIP:            pod.Status.PodIP,
+//	//	Status:           string(pod.Status.Phase),
+//	//	ServiceConnected: pod.Spec.EnableServiceLinks,
+//	//	Restarts:         GetRestartCount(*pod),
+//	//	Image:            pod.Status.ContainerStatuses[0].Image,
+//	//	Age:              pod.CreationTimestamp.String(),
+//	//}
+//	//return result, nil
+//
+//	return result, nil
+//}
 
 func (kh K8sHandler) GetServiceOverview() ([]cm.Service, error) {
 
@@ -423,53 +389,6 @@ func (kh K8sHandler) GetServiceDetail(namespace string, name string) (cm.Service
 	return result, err
 }
 
-func (kh K8sHandler) GetPersistentVolumeOverview() ([]cm.PersistentVolume, error) {
-	var result []cm.PersistentVolume
-
-	pvs, err := kh.GetPersistentVolumeList()
-	if err != nil {
-		return result, err
-	}
-
-	for _, pv := range pvs.Items {
-		result = append(result, cm.PersistentVolume{
-			Name:          pv.GetName(),
-			Capacity:      pv.Spec.Capacity,
-			AccessModes:   pv.Spec.AccessModes,
-			ReclaimPolicy: pv.Spec.PersistentVolumeReclaimPolicy,
-			Status:        string(pv.Status.Phase),
-			Claim:         GetPersistentVolumeClaim(&pv),
-			StorageClass:  pv.Spec.StorageClassName,
-		})
-	}
-	return result, err
-}
-
-func (kh K8sHandler) GetPersistentVolumeDetail(name string) (cm.PersistentVolume, error) {
-	var result cm.PersistentVolume
-
-	pv, err := kh.GetPersistentVolumeByName(name)
-	if err != nil {
-		return result, err
-	}
-
-	result = cm.PersistentVolume{
-		Name:          pv.GetName(),
-		Capacity:      pv.Spec.Capacity,
-		AccessModes:   pv.Spec.AccessModes,
-		ReclaimPolicy: pv.Spec.PersistentVolumeReclaimPolicy,
-		Status:        string(pv.Status.Phase),
-		Claim:         GetPersistentVolumeClaim(pv),
-		StorageClass:  pv.Spec.StorageClassName,
-		Reason:        pv.Status.Reason,
-		MountOption:   pv.Spec.MountOptions,
-		Labels:        pv.Labels,
-		Created:       pv.CreationTimestamp.Time.String(),
-	}
-
-	return result, err
-}
-
 // generateDescribeString generates string that represent kubernetes resource like "kubectl describe"
 // The code originated from kubectl source code's kubectl/pkg/cmd/cmd.go
 func generateDescribeString(name string, namespace string, resourceType string) string {
@@ -482,6 +401,8 @@ func generateDescribeString(name string, namespace string, resourceType string) 
 	ret := o.Run()
 	return ret
 }
+
+//
 
 func (kh K8sHandler) WatchEvents() {
 
@@ -507,4 +428,144 @@ func (kh K8sHandler) WatchEvents() {
 
 		kh.StoreEventInDB(result)
 	}
+}
+
+// overview
+func (kh K8sHandler) GetOverview() (cm.Overview, error) {
+	var result cm.Overview
+
+	ready, notReady := kh.nodeStatus()
+	running, pending, error := kh.podStatus()
+	result = cm.Overview{
+		Version: kh.GetKubeVersion(),
+		NodeStatus: cm.NodeStatus{
+			NotReady: notReady,
+			Ready:    ready,
+		},
+		PodStatus: cm.PodStatus{
+			Error:   error,
+			Pending: pending,
+			Running: running,
+		},
+	}
+
+	return result, nil
+}
+
+func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
+
+	var result []cm.Pod
+	var containerNames []string
+	var containerStats []v1.ContainerStatus
+	//	var containerMetrics *v1beta1.ContainerMetrics
+	var controllerRef metav1.OwnerReference
+
+	podList, err := kh.GetPodList()
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+
+	for _, pod := range podList.Items {
+		//	metrics, err := kh.MetricK8sClient.MetricsV1beta1().PodMetricses(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+		if err != nil {
+			log.Println(err)
+			return result, err
+		}
+
+		// Find Container's name
+
+		containerStats = pod.Status.ContainerStatuses
+		for _, containerStat := range containerStats {
+			containerNames = append(containerNames, containerStat.ContainerID)
+		}
+		//	containerMetrics = CheckContainerOfPodMetrics(metrics)
+		controllerRef = CheckOwnerOfPod(pod)
+
+		result = append(result, cm.Pod{
+
+			Name:      pod.GetName(),
+			Namespace: pod.GetNamespace(),
+			//	CpuUsage:       containerMetrics.Usage.Cpu().MilliValue(),
+			//	RamUsage:       containerMetrics.Usage.Memory().MilliValue(),
+			Restarts:       GetRestartCount(pod),
+			PodIP:          pod.Status.PodIP,
+			Status:         string(pod.Status.Phase),
+			ControllerKind: controllerRef.Kind,
+			ControllerName: controllerRef.Name,
+
+			ContainerNames: containerNames,
+		})
+	}
+	return result, nil
+}
+
+func (kh K8sHandler) Controller() ([]cm.Controller, error) {
+
+	var result []cm.Controller
+
+	deployList, err := kh.GetDeploymentList()
+	if err != nil {
+		return []cm.Controller{}, err
+	}
+
+	for _, deploy := range deployList.Items {
+		result = append(result, cm.Controller{
+			Name:         deploy.GetName(),
+			Type:         "Deployment",
+			Namespace:    deploy.GetNamespace(),
+			NumberOfPods: *deploy.Spec.Replicas,
+		})
+	}
+
+	jobList, err := kh.GetJobList()
+	if err != nil {
+		return []cm.Controller{}, err
+	}
+
+	for _, job := range jobList.Items {
+		result = append(result, cm.Controller{
+			Name:         job.GetName(),
+			Type:         "Job",
+			Namespace:    job.GetNamespace(),
+			NumberOfPods: 1,
+		})
+	}
+
+	daemonSetList, err := kh.GetDaemonSetList()
+	if err != nil {
+		return []cm.Controller{}, err
+	}
+
+	for _, daemonSet := range daemonSetList.Items {
+		result = append(result, cm.Controller{
+			Name:         daemonSet.GetName(),
+			Type:         "DaemonSet",
+			Namespace:    daemonSet.GetNamespace(),
+			NumberOfPods: 1,
+		})
+	}
+
+	return result, nil
+}
+
+func (kh K8sHandler) PersistentVolume() ([]cm.PersistentVolume, error) {
+	var result []cm.PersistentVolume
+
+	pvs, err := kh.GetPersistentVolumeList()
+	if err != nil {
+		return result, err
+	}
+
+	for _, pv := range pvs.Items {
+		result = append(result, cm.PersistentVolume{
+			Name:         pv.GetName(),
+			Capacity:     pv.Spec.Capacity.Storage().MilliValue() / 1024 / 1024 / 1000,
+			AccessModes:  pv.Spec.AccessModes,
+			Claim:        GetPersistentVolumeClaim(&pv),
+			StorageClass: pv.Spec.StorageClassName,
+			Status:       string(pv.Status.Phase),
+		})
+	}
+	return result, err
 }

@@ -88,7 +88,6 @@ func (kh K8sHandler) GetNodeList() ([]cm.Node, error) {
 
 	for _, node := range nodeList.Items {
 
-		// TODO fix diskUsage (only return zero)
 		cpuUsage, ramUsage, diskAllocated := kh.GetMetricUsage(node)
 
 		result = append(result, cm.Node{
@@ -96,37 +95,38 @@ func (kh K8sHandler) GetNodeList() ([]cm.Node, error) {
 			CpuUsage:      cpuUsage,
 			RamUsage:      ramUsage,
 			DiskAllocated: diskAllocated,
+			NetworkUsage:  0, // TODO
 			IP:            node.Status.Addresses[0].Address,
 		})
 	}
 	return result, nil
 }
 
-// To Store Metrics of node in DB
-func (kh K8sHandler) GetNodeMetric() ([]cm.RecordOfNode, error) {
-	var result []cm.RecordOfNode
-	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-
-	if err != nil {
-		log.Println(err)
-		return result, err
-	}
-
-	for _, node := range nodeList.Items {
-
-		// TODO fix diskUsage (only return zero)
-		cpuUsage, ramUsage, diskAllocated := kh.GetMetricUsage(node)
-
-		result = append(result, cm.RecordOfNode{
-			Name:          node.GetName(),
-			CpuUsage:      cpuUsage,
-			RamUsage:      ramUsage,
-			DiskAllocated: diskAllocated,
-			Timestamp:     time.Now(),
-		})
-	}
-	return result, nil
-}
+//// To Store Metrics of node in DB
+//func (kh K8sHandler) GetNodeMetric() ([]cm.RecordOfNode, error) {
+//	var result []cm.RecordOfNode
+//	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+//
+//	if err != nil {
+//		log.Println(err)
+//		return result, err
+//	}
+//
+//	for _, node := range nodeList.Items {
+//
+//		// TODO fix diskUsage (only return zero)
+//		cpuUsage, ramUsage, diskAllocated := kh.GetMetricUsage(node)
+//
+//		result = append(result, cm.RecordOfNode{
+//			Name:          node.GetName(),
+//			CpuUsage:      cpuUsage,
+//			RamUsage:      ramUsage,
+//			DiskAllocated: diskAllocated,
+//			Timestamp:     time.Now(),
+//		})
+//	}
+//	return result, nil
+//}
 
 // Get Node (name)
 func (kh K8sHandler) GetNode(nodeName string) (*corev1.Node, error) {

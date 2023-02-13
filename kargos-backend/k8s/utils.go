@@ -9,8 +9,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"log"
 	"math"
+	"sort"
 	"time"
 )
 
@@ -31,70 +33,6 @@ func (kh K8sHandler) GetKubeVersion() string {
 	}
 
 	return result
-}
-
-// Get Total Resources in Cluster (for overview/main)
-func (kh K8sHandler) GetTotalResources() (totalResources int, totalNamespaces int, totalDeployments int, totalPods int, totalIngresses int, totalServices int, totalPersistentVolumes int, totalJobs int, totalDaemonsets int, err error) {
-	namespaceList, err := kh.GetNamespaceList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-
-	totalNamespaces = len(namespaceList.Items)
-
-	deploymentList, err := kh.GetDeploymentList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalDeployments = len(deploymentList.Items)
-
-	podList, err := kh.GetPodList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalPods = len(podList.Items)
-
-	ingressList, err := kh.GetIngressList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalIngresses = len(ingressList.Items)
-
-	serviceList, err := kh.GetServiceList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalServices = len(serviceList.Items)
-
-	persistentVolumeList, err := kh.GetPersistentVolumeList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalPersistentVolumes = len(persistentVolumeList.Items)
-
-	jobList, err := kh.GetJobsList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalJobs = len(jobList.Items)
-
-	daemonsetList, err := kh.GetDaemonSetList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalDaemonsets = len(daemonsetList.Items)
-
-	totalResources = totalNamespaces + totalDeployments + totalPods + totalIngresses + totalServices + totalPersistentVolumes + totalJobs + totalDaemonsets
-
-	return totalResources, totalNamespaces, totalDeployments, totalPods, totalIngresses, totalServices, totalPersistentVolumes, totalJobs, totalDaemonsets, nil
 }
 
 // Get Number of Nodes in Cluster
@@ -224,6 +162,50 @@ func (kh K8sHandler) GetMetricUsage(node corev1.Node) (cpuUsage float64, memoryU
 	return usageCpu, usageMemory, diskAllocated
 }
 
+func (kh K8sHandler) GetTopMetric() (nodeCpu map[string]float64, nodeMemory map[string]float64) {
+	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return nodeCpu, nodeMemory
+	}
+
+	for _, node := range nodeList.Items {
+		metrics, err := kh.MetricK8sClient.MetricsV1beta1().NodeMetricses().Get(context.TODO(), node.GetName(), metav1.GetOptions{})
+		if err != nil {
+			log.Println(err)
+			return nodeCpu, nodeMemory
+		}
+
+		usageCpu := ToPercentage(float64(metrics.Usage.Cpu().MilliValue()), float64(node.Status.Allocatable.Cpu().MilliValue()))
+		usageMemory := ToPercentage(float64(metrics.Usage.Memory().MilliValue()), float64(node.Status.Allocatable.Memory().MilliValue()))
+
+		nodeName := node.GetName()
+
+		nodeCpu[nodeName] = usageCpu
+		nodeMemory[nodeName] = usageMemory
+	}
+
+	// sort in descending order
+	// go의 map은 그 자체로 정렬할 수 없고, slice를 사용해야 하기 때문에 조금 비효율적임
+	// 이렇게 정렬할 바에.. db에 저장해서 꺼내는 게 나을듯?..
+	//
+	var keys []string
+	for k := range nodeCpu {
+		keys = append(keys, k)
+	}
+
+	// Sort the slice of key-value pairs by the values in the map in descending order
+	sort.Slice(keys, func(i, j int) bool {
+		return nodeCpu[keys[i]] > nodeCpu[keys[j]]
+	})
+
+	// Print the sorted map
+	for _, k := range keys {
+		fmt.Printf("%s: %d\n", k, nodeCpu[k])
+	}
+	return nodeCpu, nodeMemory
+}
+
 // -- Namespace -- //
 
 // to get 5 namespaces with status "Active"
@@ -324,8 +306,7 @@ func (kh K8sHandler) TransferPod(podList *corev1.PodList) []cm.Pod {
 		result = append(result, cm.Pod{
 			Name:   pod.Name,
 			Status: string(pod.Status.Phase),
-			Image:  pod.Spec.Containers[0].Image,
-			Age:    pod.CreationTimestamp.Time.Format(time.RFC3339),
+			Image:  CheckContainerOfPod(pod).Image,
 		})
 	}
 
@@ -446,12 +427,21 @@ func GetRestartCount(pod corev1.Pod) int32 {
 
 // Check if the container has been created //
 
-func CheckContainerOfPod(pod corev1.Pod) string {
+func CheckContainerOfPod(pod corev1.Pod) corev1.Container {
 	if len(pod.Spec.Containers) > 0 {
-		return pod.Spec.Containers[0].Image
+		return pod.Spec.Containers[0]
 
 	} else {
-		return "unknown"
+		return corev1.Container{}
+	}
+}
+
+func CheckContainerOfPodMetrics(metrics *v1beta1.PodMetrics) *v1beta1.ContainerMetrics {
+	if len(metrics.Containers) > 0 {
+		return &metrics.Containers[0]
+
+	} else {
+		return &v1beta1.ContainerMetrics{}
 	}
 }
 
@@ -469,4 +459,59 @@ func CheckContainerOfDeploy(deployment appsv1.Deployment) (status string, image 
 	}
 
 	return status, image
+}
+
+func (kh K8sHandler) nodeStatus() (ready int, notReady int) {
+	ready, notReady = 0, 0
+
+	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return ready, notReady
+	}
+
+	for _, node := range nodeList.Items {
+		if isNodeReady(&node) {
+			ready++
+		} else {
+			notReady++
+		}
+	}
+	return ready, notReady
+}
+
+func (kh K8sHandler) podStatus() (running int, pending int, error int) {
+
+	running, pending, error = 0, 0, 0
+
+	podList, err := kh.K8sClient.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return running, pending, error
+	}
+
+	for _, pod := range podList.Items {
+		switch pod.Status.Phase {
+		case corev1.PodPending:
+			pending++
+		case corev1.PodRunning:
+			running++
+		case corev1.PodSucceeded:
+			running++
+		case corev1.PodFailed:
+			error++
+		default:
+			error++
+		}
+	}
+	return running, pending, error
+}
+
+func isNodeReady(node *corev1.Node) bool {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			return condition.Status == corev1.ConditionTrue
+		}
+	}
+	return false
 }

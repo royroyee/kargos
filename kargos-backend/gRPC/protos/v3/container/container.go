@@ -84,7 +84,7 @@ func (c Containers) SendContainerData(ctx context.Context, info *ContainersInfo)
 	containers := translateContainersInfo(info)
 	//printContainers(containers)
 
-	pods, _ := c.K8sHandler.GetPodOverview()
+	pods, _ := c.K8sHandler.PodOverview()
 	for i, pod := range pods {
 		matchPodContainers(containers, &pod)
 		pods[i] = pod

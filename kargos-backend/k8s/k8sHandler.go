@@ -12,7 +12,6 @@ import (
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"log"
-	"time"
 )
 
 // K8s
@@ -29,7 +28,9 @@ func NewK8sHandler() *K8sHandler {
 	kh := &K8sHandler{
 		K8sClient:       cm.InitK8sClient(),
 		MetricK8sClient: cm.InitMetricK8sClient(),
-		session:         GetDBSession(),
+		//K8sClient:       cm.ClientSetOutofCluster(),
+		//MetricK8sClient: cm.MetricClientSetOutofCluster(),
+		session: GetDBSession(),
 	}
 
 	////// Out of Cluster
@@ -40,39 +41,6 @@ func NewK8sHandler() *K8sHandler {
 	//}
 
 	return kh
-}
-
-// for Overview/main
-func (kh K8sHandler) GetHome() (cm.Home, error) {
-	var result cm.Home
-
-	totalResources, namespaces, deployments, pods, ingresses, services, persistentVolumes, jobs, daemonSets, err := kh.GetTotalResources()
-
-	if err != nil {
-		return cm.Home{}, err
-	}
-	result = cm.Home{
-		Version:    kh.GetKubeVersion(),
-		TotalNodes: kh.GetTotalNodes(),
-		Created:    kh.GetCreatedOfCluster(),
-		Tabs: map[string]int{
-			"TotalResources":   totalResources,
-			"Namespaces":       namespaces,
-			"Deployments":      deployments,
-			"Pods":             pods,
-			"Ingresses":        ingresses,
-			"Services":         services,
-			"PersistentVolume": persistentVolumes,
-			"Jobs":             jobs,
-			"DaemonSets":       daemonSets,
-		},
-
-		// TODO
-		TopNamespaces: kh.GetTopNamespaces(),
-		AlertCount:    kh.GetAlertsCount(),
-	}
-
-	return result, nil
 }
 
 // for nodes/overview
@@ -316,65 +284,65 @@ func (kh K8sHandler) GetNamespaceDetail(name string) (cm.Namespace, error) {
 }
 
 // resources/pods/overview
-func (kh K8sHandler) GetPodOverview() ([]cm.Pod, error) {
-	var result []cm.Pod
+//func (kh K8sHandler) GetPodOverview() ([]cm.Pod, error) {
+//	var result []cm.Pod
+//
+//	podList, err := kh.GetPodList()
+//	if err != nil {
+//		return []cm.Pod{}, err
+//	}
+//
+//	for _, pod := range podList.Items {
+//		// Find Container's name
+//		var containerNames []string
+//		containerStats := pod.Status.ContainerStatuses
+//		for _, containerStat := range containerStats {
+//			containerNames = append(containerNames, containerStat.ContainerID)
+//		}
+//
+//		result = append(result, cm.Pod{
+//			Name:             pod.GetName(),
+//			Namespace:        pod.GetNamespace(),
+//			PodIP:            pod.Status.PodIP,
+//			Status:           string(pod.Status.Phase),
+//			ServiceConnected: pod.Spec.EnableServiceLinks,
+//			Restarts:         GetRestartCount(pod),
+//			Image:            CheckContainerOfPod(pod).Image,
+//			Age:              pod.CreationTimestamp.String(),
+//			ContainerNames:   containerNames,
+//			Timestamp:        time.Now(), // not pod's creation time , just for db query
+//		})
+//	}
+//	return result, nil
+//}
 
-	podList, err := kh.GetPodList()
-	if err != nil {
-		return []cm.Pod{}, err
-	}
-
-	for _, pod := range podList.Items {
-		// Find Container's name
-		var containerNames []string
-		containerStats := pod.Status.ContainerStatuses
-		for _, containerStat := range containerStats {
-			containerNames = append(containerNames, containerStat.ContainerID)
-		}
-
-		result = append(result, cm.Pod{
-			Name:             pod.GetName(),
-			Namespace:        pod.GetNamespace(),
-			PodIP:            pod.Status.PodIP,
-			Status:           string(pod.Status.Phase),
-			ServiceConnected: pod.Spec.EnableServiceLinks,
-			Restarts:         GetRestartCount(pod),
-			Image:            CheckContainerOfPod(pod),
-			Age:              pod.CreationTimestamp.String(),
-			ContainerNames:   containerNames,
-			Timestamp:        time.Now(), // not pod's creation time , just for db query
-		})
-	}
-	return result, nil
-}
-
-// resources/pod/:name
-// for node/:name
-func (kh K8sHandler) GetPodDetail(podName string) (cm.Pod, error) {
-
-	result, err := kh.GetRecordOfPod(podName)
-	if err != nil {
-		return result, err
-	}
-
-	//pod, err := kh.GetPodByName(namespace, podName)
-	//if err != nil {
-	//	return cm.Pod{}, errs
-	//}
-	//result = cm.Pod{
-	//	Name:             pod.GetName(),
-	//	Namespace:        pod.GetNamespace(),
-	//	PodIP:            pod.Status.PodIP,
-	//	Status:           string(pod.Status.Phase),
-	//	ServiceConnected: pod.Spec.EnableServiceLinks,
-	//	Restarts:         GetRestartCount(*pod),
-	//	Image:            pod.Status.ContainerStatuses[0].Image,
-	//	Age:              pod.CreationTimestamp.String(),
-	//}
-	//return result, nil
-
-	return result, nil
-}
+//// resources/pod/:name
+//// for node/:name
+//func (kh K8sHandler) GetPodDetail(podName string) (cm.Pod, error) {
+//
+//	result, err := kh.GetRecordOfPod(podName)
+//	if err != nil {
+//		return result, err
+//	}
+//
+//	//pod, err := kh.GetPodByName(namespace, podName)
+//	//if err != nil {
+//	//	return cm.Pod{}, errs
+//	//}
+//	//result = cm.Pod{
+//	//	Name:             pod.GetName(),
+//	//	Namespace:        pod.GetNamespace(),
+//	//	PodIP:            pod.Status.PodIP,
+//	//	Status:           string(pod.Status.Phase),
+//	//	ServiceConnected: pod.Spec.EnableServiceLinks,
+//	//	Restarts:         GetRestartCount(*pod),
+//	//	Image:            pod.Status.ContainerStatuses[0].Image,
+//	//	Age:              pod.CreationTimestamp.String(),
+//	//}
+//	//return result, nil
+//
+//	return result, nil
+//}
 
 func (kh K8sHandler) GetServiceOverview() ([]cm.Service, error) {
 
@@ -483,6 +451,8 @@ func generateDescribeString(name string, namespace string, resourceType string) 
 	return ret
 }
 
+//
+
 func (kh K8sHandler) WatchEvents() {
 
 	var result cm.Event
@@ -508,3 +478,100 @@ func (kh K8sHandler) WatchEvents() {
 		kh.StoreEventInDB(result)
 	}
 }
+
+func (kh K8sHandler) ControllersOverview() {
+
+}
+
+// overview
+func (kh K8sHandler) GetOverview() (cm.Overview, error) {
+	var result cm.Overview
+
+	ready, notReady := kh.nodeStatus()
+	running, pending, error := kh.podStatus()
+	result = cm.Overview{
+		Version: kh.GetKubeVersion(),
+		NodeStatus: cm.NodeStatus{
+			NotReady: notReady,
+			Ready:    ready,
+		},
+		PodStatus: cm.PodStatus{
+			Error:   error,
+			Pending: pending,
+			Running: running,
+		},
+	}
+
+	return result, nil
+}
+
+func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
+
+	var result []cm.Pod
+
+	podList, err := kh.GetPodList()
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+
+	for _, pod := range podList.Items {
+		metrics, err := kh.MetricK8sClient.MetricsV1beta1().PodMetricses(metav1.NamespaceAll).Get(context.TODO(), pod.GetName(), metav1.GetOptions{})
+		if err != nil {
+			log.Println(err)
+			return result, err
+		}
+
+		// Find Container's name
+		var containerNames []string
+		containerStats := pod.Status.ContainerStatuses
+		for _, containerStat := range containerStats {
+			containerNames = append(containerNames, containerStat.ContainerID)
+		}
+		result = append(result, cm.Pod{
+			Name:      pod.GetName(),
+			Namespace: pod.GetNamespace(),
+			CpuUsage:  CheckContainerOfPodMetrics(metrics).Usage.Cpu().MilliValue(),
+			RamUsage:  CheckContainerOfPodMetrics(metrics).Usage.Memory().MilliValue(),
+			Restarts:  GetRestartCount(pod),
+			PodIP:     pod.Status.PodIP,
+			Status:    string(pod.Status.Phase),
+
+			ContainerNames: containerNames,
+		})
+	}
+	return result, nil
+}
+
+// resources/pods/overview
+//func (kh K8sHandler) GetPodOverview() ([]cm.Pod, error) {
+//	var result []cm.Pod
+//
+//	podList, err := kh.GetPodList()
+//	if err != nil {
+//		return []cm.Pod{}, err
+//	}
+//
+//	for _, pod := range podList.Items {
+//		// Find Container's name
+//		var containerNames []string
+//		containerStats := pod.Status.ContainerStatuses
+//		for _, containerStat := range containerStats {
+//			containerNames = append(containerNames, containerStat.ContainerID)
+//		}
+//
+//		result = append(result, cm.Pod{
+//			Name:             pod.GetName(),
+//			Namespace:        pod.GetNamespace(),
+//			PodIP:            pod.Status.PodIP,
+//			Status:           string(pod.Status.Phase),
+//			ServiceConnected: pod.Spec.EnableServiceLinks,
+//			Restarts:         GetRestartCount(pod),
+//			Image:            CheckContainerOfPod(pod).Image,
+//			Age:              pod.CreationTimestamp.String(),
+//			ContainerNames:   containerNames,
+//			Timestamp:        time.Now(), // not pod's creation time , just for db query
+//		})
+//	}
+//	return result, nil
+//}

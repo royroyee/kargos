@@ -246,6 +246,22 @@ func (kh K8sHandler) deletePodFromDB(podList []cm.Pod) {
 	log.Println("Pod Data deleted successfully")
 }
 
+// Info : Events other than the warning cirtical type
+func (kh K8sHandler) GetPodOverview(page int, perPage int) ([]cm.PodOverview, error) {
+	var result []cm.PodOverview
+	collection := kh.session.DB("kargos").C("pod")
+
+	skip := (page - 1) * perPage
+	limit := perPage
+
+	err := collection.Find(bson.M{}).Skip(skip).Limit(limit).Sort("namespace").All(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	return result, nil
+}
+
 func (kh K8sHandler) GetRecordOfPod(podName string) (cm.Pod, error) {
 	var result = cm.Pod{}
 

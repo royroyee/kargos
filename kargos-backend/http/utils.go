@@ -9,13 +9,13 @@ import (
 
 func (httpHandler HTTPHandler) GetOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-	home, err := httpHandler.k8sHandler.GetHome()
+	overview, err := httpHandler.k8sHandler.GetOverview()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	result, err := json.Marshal(&home)
+	result, err := json.Marshal(&overview)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -131,28 +131,9 @@ func (httpHandler HTTPHandler) GetIngressSpecific(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusOK)
 }
 
-func (httpHandler HTTPHandler) GetPodOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-
-	podOverview, err := httpHandler.k8sHandler.GetPodOverview()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	result, err := json.Marshal(&podOverview)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(result)
-	w.WriteHeader(http.StatusOK)
-}
-
 func (httpHandler HTTPHandler) GetPodDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
-	podDetail, err := httpHandler.k8sHandler.GetPodDetail(ps.ByName("name"))
+	podDetail, err := httpHandler.k8sHandler.GetRecordOfPod(ps.ByName("name"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -407,6 +388,35 @@ func (httpHandler HTTPHandler) GetInfo(w http.ResponseWriter, r *http.Request, p
 	}
 
 	result, err := json.Marshal(&info)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (httpHandler HTTPHandler) GetPodOverview(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+
+	// Parse the query parameters
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		page = 1
+	}
+	perPage, err := strconv.Atoi(r.URL.Query().Get("per_page"))
+	if err != nil {
+		perPage = 10
+	}
+
+	podOverview, err := httpHandler.k8sHandler.GetPodOverview(page, perPage)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := json.Marshal(&podOverview)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

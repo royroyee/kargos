@@ -78,13 +78,13 @@ func GetDBSession() *mgo.Session {
 
 // Store Node Data In DB every 6 hours
 func (kh K8sHandler) storeNodeInDB() {
-	nodeList, err := kh.GetNodeMetric() // TODO change node struct
+	nodeList, err := kh.GetNodeList() // TODO change node struct
 	if err != nil {
 		return
 	}
 
 	// Delete values that should not be in db before saving node data.
-	//	kh.deleteNodeFromDB(nodeList)
+	kh.deleteNodeFromDB(nodeList)
 
 	// Use its own session to avoid any concurrent use issues
 	cloneSession := kh.session.Clone()
@@ -103,6 +103,22 @@ func (kh K8sHandler) storeNodeInDB() {
 	}
 
 	log.Println("Node Data stored successfully")
+}
+
+// Info : Events other than the warning cirtical type
+func (kh K8sHandler) GetNodeOverview(page int, perPage int) ([]cm.Node, error) {
+	var result []cm.Node
+	collection := kh.session.DB("kargos").C("node")
+
+	skip := (page - 1) * perPage
+	limit := perPage
+
+	err := collection.Find(bson.M{}).Skip(skip).Limit(limit).Sort("name").All(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	return result, nil
 }
 
 // Delete all Node data older than 25 hours
@@ -136,57 +152,57 @@ func (kh K8sHandler) deleteNodeFromDB(nodeList []cm.Node) {
 	log.Println("Node Data deleted successfully")
 }
 
-func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.RecordOfNode, cm.RecordOfNode) {
-	var hours24, hours12, hours6 cm.RecordOfNode
-
-	collection := kh.session.DB("kargos").C("node")
-
-	// last 24 hours
-	filter := bson.M{
-		"$and": []bson.M{
-			{"name": nodeName},
-			{"timestamp": bson.M{"$lte": time.Now().Add(-20 * time.Hour)}},
-		},
-	}
-
-	err := collection.Find(filter).One(&hours24)
-	if err != nil {
-		log.Println(err)
-		return hours24, hours12, hours6
-	}
-
-	// last 12 hours
-	filter = bson.M{
-		"$and": []bson.M{
-			{"name": nodeName},
-			{"timestamp": bson.M{"$lte": time.Now().Add(-10 * time.Hour)}},
-			{"timestamp": bson.M{"$gte": time.Now().Add(-15 * time.Hour)}},
-		},
-	}
-
-	err = collection.Find(filter).One(&hours12)
-	if err != nil {
-		log.Println(err)
-		return hours24, hours12, hours6
-	}
-
-	// last 6 hours
-	filter = bson.M{
-		"$and": []bson.M{
-			{"name": nodeName},
-			{"timestamp": bson.M{"$lte": time.Now().Add(-4 * time.Hour)}},
-			{"timestamp": bson.M{"$gte": time.Now().Add(-9 * time.Hour)}},
-		},
-	}
-
-	err = collection.Find(filter).One(&hours6)
-	if err != nil {
-		log.Println(err)
-		return hours24, hours12, hours6
-	}
-
-	return hours24, hours12, hours6
-}
+//func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.RecordOfNode, cm.RecordOfNode) {
+//	var hours24, hours12, hours6 cm.RecordOfNode
+//
+//	collection := kh.session.DB("kargos").C("node")
+//
+//	// last 24 hours
+//	filter := bson.M{
+//		"$and": []bson.M{
+//			{"name": nodeName},
+//			{"timestamp": bson.M{"$lte": time.Now().Add(-20 * time.Hour)}},
+//		},
+//	}
+//
+//	err := collection.Find(filter).One(&hours24)
+//	if err != nil {
+//		log.Println(err)
+//		return hours24, hours12, hours6
+//	}
+//
+//	// last 12 hours
+//	filter = bson.M{
+//		"$and": []bson.M{
+//			{"name": nodeName},
+//			{"timestamp": bson.M{"$lte": time.Now().Add(-10 * time.Hour)}},
+//			{"timestamp": bson.M{"$gte": time.Now().Add(-15 * time.Hour)}},
+//		},
+//	}
+//
+//	err = collection.Find(filter).One(&hours12)
+//	if err != nil {
+//		log.Println(err)
+//		return hours24, hours12, hours6
+//	}
+//
+//	// last 6 hours
+//	filter = bson.M{
+//		"$and": []bson.M{
+//			{"name": nodeName},
+//			{"timestamp": bson.M{"$lte": time.Now().Add(-4 * time.Hour)}},
+//			{"timestamp": bson.M{"$gte": time.Now().Add(-9 * time.Hour)}},
+//		},
+//	}
+//
+//	err = collection.Find(filter).One(&hours6)
+//	if err != nil {
+//		log.Println(err)
+//		return hours24, hours12, hours6
+//	}
+//
+//	return hours24, hours12, hours6
+//}
 
 // Store Pod Data into DB when kargos agents send container data to gRPC Server (container.go)
 // default : 60 second

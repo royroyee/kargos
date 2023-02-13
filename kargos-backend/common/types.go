@@ -3,7 +3,6 @@ package common
 import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 //// Overview main
@@ -25,27 +24,27 @@ type Overview struct {
 	PodStatus  PodStatus  `json:"pod_status"`
 }
 
-// Node
-type Node struct {
-	Name          string                  `json:"name"`
-	CpuUsage      float64                 `json:"cpu_usage"`
-	RamUsage      float64                 `json:"ram_usage"`
-	DiskAllocated float64                 `json:"disk_allocated"`
-	IP            string                  `json:"ip"`
-	Ready         string                  `json:"ready"`
-	OsImage       string                  `json:"os_image"`
-	Pods          []Pod                   `json:"pods"`
-	Record        map[string]RecordOfNode `json:"record"`
-}
-
-// NodeMetric (DB ( last 24 hours etc ..)
-type RecordOfNode struct {
-	Name          string    `json:"name"`
-	CpuUsage      float64   `json:"cpu_usage"`
-	RamUsage      float64   `json:"ram_usage"`
-	DiskAllocated float64   `json:"disk_allocated"`
-	Timestamp     time.Time `json:"timestamp"`
-}
+//// Node
+//type Node struct {
+//	Name          string                  `json:"name"`
+//	CpuUsage      float64                 `json:"cpu_usage"`
+//	RamUsage      float64                 `json:"ram_usage"`
+//	DiskAllocated float64                 `json:"disk_allocated"`
+//	IP            string                  `json:"ip"`
+//	Ready         string                  `json:"ready"`
+//	OsImage       string                  `json:"os_image"`
+//	Pods          []Pod                   `json:"pods"`
+//	Record        map[string]RecordOfNode `json:"record"`
+//}
+//
+//// NodeMetric (DB ( last 24 hours etc ..)
+//type RecordOfNode struct {
+//	Name          string    `json:"name"`
+//	CpuUsage      float64   `json:"cpu_usage"`
+//	RamUsage      float64   `json:"ram_usage"`
+//	DiskAllocated float64   `json:"disk_allocated"`
+//	Timestamp     time.Time `json:"timestamp"`
+//}
 
 //// Pod
 //type Pod struct {
@@ -226,4 +225,13 @@ type PodOverview struct {
 	Restarts  int32  `json:"restarts"`
 	PodIP     string `json:"pod_ip"`
 	Status    string `json:"status"`
+}
+
+type Node struct {
+	Name          string  `json:"name"`
+	CpuUsage      float64 `json:"cpu_usage"`
+	RamUsage      float64 `json:"ram_usage"`
+	DiskAllocated float64 `json:"disk_allocated"`
+	NetworkUsage  int     `json:"network_usage"`
+	IP            string  `json:"ip"`
 }

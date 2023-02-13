@@ -26,37 +26,18 @@ func (httpHandler HTTPHandler) GetOverview(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusOK)
 }
 
-func (httpHandler HTTPHandler) GetNodeOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-
-	nodeOverview, err := httpHandler.k8sHandler.GetNodeOverview()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	result, err := json.Marshal(&nodeOverview)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(result)
-	w.WriteHeader(http.StatusOK)
-}
-
-func (httpHandler HTTPHandler) GetNodeDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	nodeDetail, err := httpHandler.k8sHandler.GetNodeDetail(ps.ByName("name"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	result, err := json.Marshal(&nodeDetail)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(result)
-	w.WriteHeader(http.StatusOK)
-}
+//func (httpHandler HTTPHandler) GetNodeDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+//	nodeDetail, err := httpHandler.k8sHandler.GetNodeDetail(ps.ByName("name"))
+//	if err != nil {
+//		http.Error(w, err.Error(), http.StatusBadRequest)
+//		return
+//	}
+//	result, err := json.Marshal(&nodeDetail)
+//
+//	w.Header().Set("Content-Type", "application/json")
+//	w.Write(result)
+//	w.WriteHeader(http.StatusOK)
+//}
 
 func (httpHandler HTTPHandler) GetDeploymentOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	deployOverview, err := httpHandler.k8sHandler.GetDeploymentOverview()
@@ -417,6 +398,30 @@ func (httpHandler HTTPHandler) GetPodOverview(w http.ResponseWriter, r *http.Req
 	}
 
 	result, err := json.Marshal(&podOverview)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (httpHandler HTTPHandler) GetNodeOverview(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+
+	// Parse the query parameters
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		page = 1
+	}
+	perPage, err := strconv.Atoi(r.URL.Query().Get("per_page"))
+	if err != nil {
+		perPage = 10
+	}
+
+	nodeOverview, err := httpHandler.k8sHandler.GetNodeOverview(page, perPage)
+	result, err := json.Marshal(&nodeOverview)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

@@ -32,6 +32,9 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	r.GET("/events/alerts", httpHandler.GetAlerts)
 	r.GET("/events/info", httpHandler.GetInfo)
 
+	// Nodes
+	r.GET("/nodes", httpHandler.GetNodeOverview)
+
 	// Resources/pods
 	r.GET("/resources/pods/overview", httpHandler.GetPodOverview)
 	r.GET("/resources/pod/:name", httpHandler.GetPodDetail)

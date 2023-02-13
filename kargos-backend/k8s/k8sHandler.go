@@ -28,9 +28,7 @@ func NewK8sHandler() *K8sHandler {
 	kh := &K8sHandler{
 		K8sClient:       cm.InitK8sClient(),
 		MetricK8sClient: cm.InitMetricK8sClient(),
-		//K8sClient:       cm.ClientSetOutofCluster(),
-		//MetricK8sClient: cm.MetricClientSetOutofCluster(),
-		session: GetDBSession(),
+		session:         GetDBSession(),
 	}
 
 	////// Out of Cluster
@@ -43,48 +41,48 @@ func NewK8sHandler() *K8sHandler {
 	return kh
 }
 
-// for nodes/overview
-func (kh K8sHandler) GetNodeOverview() ([]cm.Node, error) {
-	result, err := kh.GetNodeList()
-	return result, err
-}
-
-// for node/:name
-func (kh K8sHandler) GetNodeDetail(nodeName string) (cm.Node, error) {
-	var result cm.Node
-
-	node, err := kh.GetNode(nodeName)
-	if err != nil {
-		return cm.Node{}, err
-	}
-
-	cpuUsage, ramUsage, diskAllocated := kh.GetMetricUsage(*node)
-
-	hours24, hours12, hours6 := kh.GetRecordOfNode(nodeName)
-
-	podList, err := kh.GetPodsByNode(nodeName)
-
-	if err != nil {
-		return cm.Node{}, err
-	}
-
-	result = cm.Node{
-		Name:          nodeName,
-		CpuUsage:      cpuUsage,
-		RamUsage:      ramUsage,
-		DiskAllocated: diskAllocated,
-		IP:            node.Status.Addresses[0].Address,
-		Ready:         string(node.Status.Conditions[0].Status),
-		OsImage:       node.Status.NodeInfo.OSImage,
-		Pods:          kh.TransferPod(podList),
-		Record: map[string]cm.RecordOfNode{
-			"24hours": hours24,
-			"12hours": hours12,
-			"6hours":  hours6,
-		},
-	}
-	return result, nil
-}
+//// for nodes/overview
+//func (kh K8sHandler) GetNodeOverview() ([]cm.Node, error) {
+//	result, err := kh.GetNodeList()
+//	return result, err
+//}
+//
+//// for node/:name
+//func (kh K8sHandler) GetNodeDetail(nodeName string) (cm.Node, error) {
+//	var result cm.Node
+//
+//	node, err := kh.GetNode(nodeName)
+//	if err != nil {
+//		return cm.Node{}, err
+//	}
+//
+//	cpuUsage, ramUsage, diskAllocated := kh.GetMetricUsage(*node)
+//
+//	hours24, hours12, hours6 := kh.GetRecordOfNode(nodeName)
+//
+//	podList, err := kh.GetPodsByNode(nodeName)
+//
+//	if err != nil {
+//		return cm.Node{}, err
+//	}
+//
+//	result = cm.Node{
+//		Name:          nodeName,
+//		CpuUsage:      cpuUsage,
+//		RamUsage:      ramUsage,
+//		DiskAllocated: diskAllocated,
+//		IP:            node.Status.Addresses[0].Address,
+//		Ready:         string(node.Status.Conditions[0].Status),
+//		OsImage:       node.Status.NodeInfo.OSImage,
+//		Pods:          kh.TransferPod(podList),
+//		Record: map[string]cm.RecordOfNode{
+//			"24hours": hours24,
+//			"12hours": hours12,
+//			"6hours":  hours6,
+//		},
+//	}
+//	return result, nil
+//}
 
 // controllers/deployments/overview
 func (kh K8sHandler) GetDeploymentOverview() ([]cm.Deployment, error) {

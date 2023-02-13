@@ -14,32 +14,33 @@ func (kh K8sHandler) DBSession() {
 	// already created db session (main/initHandlers)
 	defer kh.session.Close()
 
-	// Store data in the DB every 3 Hours
-	insertTicker := time.NewTicker(3 * time.Hour) // test
+	// Store data in the DB every 30 second
+	insertTicker := time.NewTicker(30 * time.Second) // test
 	go func() {
 		for range insertTicker.C {
 			kh.storeNodeInDB()
+			kh.storeDeploymentInDB()
 		}
 	}()
 
 	// Delete old data(node) from DB every 25 hours
-	deleteTicker := time.NewTicker(25 * time.Hour) // test
-	go func() {
-		for range deleteTicker.C {
-			kh.deleteNodeFromDB()
-		}
-	}()
+	//deleteTicker := time.NewTicker(25 * time.Hour) // test
+	//go func() {
+	//	for range deleteTicker.C {
+	//		kh.deleteNodeFromDB()
+	//	}
+	//}()
 
 	// Delte old data(pod) from DB every 5 minutes
-	deleteTicker = time.NewTicker(5 * time.Minute) // test
-	go func() {
-		for range deleteTicker.C {
-			kh.deletePodFromDB()
-		}
-	}()
+	//deleteTicker = time.NewTicker(5 * time.Minute) // test
+	//go func() {
+	//	for range deleteTicker.C {
+	//		kh.deletePodFromDB()
+	//	}
+	//}()
 
 	// Delete old data(event) from DB every 24 hours
-	deleteTicker = time.NewTicker(24 * time.Hour) // test
+	deleteTicker := time.NewTicker(24 * time.Hour) // test
 	go func() {
 		for range deleteTicker.C {
 			kh.deleteEventFromDB()
@@ -77,38 +78,62 @@ func GetDBSession() *mgo.Session {
 
 // Store Node Data In DB every 6 hours
 func (kh K8sHandler) storeNodeInDB() {
-	nodeList, err := kh.GetNodeMetric() // Only metrics of node
+	nodeList, err := kh.GetNodeMetric() // TODO change node struct
 	if err != nil {
 		return
 	}
 
+	// Delete values that should not be in db before saving node data.
+	//	kh.deleteNodeFromDB(nodeList)
+
 	// Use its own session to avoid any concurrent use issues
 	cloneSession := kh.session.Clone()
+	defer cloneSession.Close()
 
 	collection := cloneSession.DB("kargos").C("node")
 
+	bulk := collection.Bulk()
 	for _, node := range nodeList {
-		err = collection.Insert(node)
-		if err != nil {
-			log.Println(err)
-			return
-		}
+		bulk.Upsert(bson.M{"name": node.Name}, node) // duplicate processing : name of node
 	}
-	log.Println("Node Data stored successfully")
-}
-
-// Delete all Node data older than 25 hours
-func (kh K8sHandler) deleteNodeFromDB() {
-	collection := kh.session.DB("kargos").C("node")
-
-	cutoff := time.Now().Add(-25 * time.Hour)
-	_, err := collection.RemoveAll(bson.M{"timestamp": bson.M{"$lte": cutoff}})
+	_, err = bulk.Run()
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	log.Println("Old data of nodes deleted successfully")
+	log.Println("Node Data stored successfully")
+}
+
+// Delete all Node data older than 25 hours
+func (kh K8sHandler) deleteNodeFromDB(nodeList []cm.Node) {
+	//collection := kh.session.DB("kargos").C("node")
+	//
+	//cutoff := time.Now().Add(-25 * time.Hour)
+	//_, err := collection.RemoveAll(bson.M{"timestamp": bson.M{"$lte": cutoff}})
+	//if err != nil {
+	//	log.Println(err)
+	//	return
+	//}
+
+	cloneSession := kh.session.Clone()
+	defer cloneSession.Close()
+
+	collection := kh.session.DB("kargos").C("node")
+
+	nodeNames := make([]string, 0)
+	for _, node := range nodeList {
+		nodeNames = append(nodeNames, node.Name)
+	}
+
+	// Delete the node from the database if it's not in the nodeNames list
+	_, err := collection.RemoveAll(bson.M{"name": bson.M{"$nin": nodeNames}})
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println("Node Data deleted successfully")
 }
 
 func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.RecordOfNode, cm.RecordOfNode) {
@@ -167,33 +192,58 @@ func (kh K8sHandler) GetRecordOfNode(nodeName string) (cm.RecordOfNode, cm.Recor
 // default : 60 second
 func (kh K8sHandler) StorePodInDB(podList []cm.Pod) {
 
+	// Delete values that should not be in db before saving pod data.
+	kh.deletePodFromDB(podList)
+
 	// Use its own session to avoid any concurrent use issues
 	cloneSession := kh.session.Clone()
+	defer cloneSession.Close()
 
 	collection := cloneSession.DB("kargos").C("pod")
 
+	bulk := collection.Bulk()
 	for _, pod := range podList {
-		err := collection.Insert(pod)
-		if err != nil {
-			log.Println(err)
-			return
-		}
+		bulk.Upsert(bson.M{"name": pod.Name}, pod) // duplicate processing : name of pod
+	}
+	_, err := bulk.Run()
+	if err != nil {
+		log.Println(err)
+		return
 	}
 
 	log.Println("Pod Data stored successfully")
 }
 
 // Delete all Pod data older than 5 Minutes
-func (kh K8sHandler) deletePodFromDB() {
+func (kh K8sHandler) deletePodFromDB(podList []cm.Pod) {
+	//collection := kh.session.DB("kargos").C("pod")
+	//
+	//cutoff := time.Now().Add(-5 * time.Minute)
+	//_, err := collection.RemoveAll(bson.M{"timestamp": bson.M{"$lte": cutoff}})
+	//if err != nil {
+	//	log.Println(err)
+	//	return
+	//}
+	//log.Println("Old data of pods deleted successfully")
+
+	cloneSession := kh.session.Clone()
+	defer cloneSession.Close()
+
 	collection := kh.session.DB("kargos").C("pod")
 
-	cutoff := time.Now().Add(-5 * time.Minute)
-	_, err := collection.RemoveAll(bson.M{"timestamp": bson.M{"$lte": cutoff}})
+	podNames := make([]string, 0)
+	for _, pod := range podList {
+		podNames = append(podNames, pod.Name)
+	}
+
+	// Delete the pod from the database if it's not in the podNames list
+	_, err := collection.RemoveAll(bson.M{"name": bson.M{"$nin": podNames}})
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	log.Println("Old data of pods deleted successfully")
+
+	log.Println("Pod Data deleted successfully")
 }
 
 func (kh K8sHandler) GetRecordOfPod(podName string) (cm.Pod, error) {
@@ -299,4 +349,54 @@ func (kh K8sHandler) deleteEventFromDB() {
 		return
 	}
 	log.Println("Old data of events deleted successfully")
+}
+
+func (kh K8sHandler) storeDeploymentInDB() {
+	deployList, err := kh.GetDeploymentOverview() // Only metrics of node
+	if err != nil {
+		return
+	}
+
+	kh.deleteDeploymentFromDB(deployList)
+
+	// Use its own session to avoid any concurrent use issues
+	cloneSession := kh.session.Clone()
+	defer cloneSession.Close()
+
+	collection := cloneSession.DB("kargos").C("deployment")
+
+	bulk := collection.Bulk()
+	for _, deploy := range deployList {
+		bulk.Upsert(bson.M{"name": deploy.Name}, deploy)
+	}
+	_, err = bulk.Run()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println("Deployment Data stored successfully")
+}
+
+func (kh K8sHandler) deleteDeploymentFromDB(deployList []cm.Deployment) {
+
+	cloneSession := kh.session.Clone()
+	defer cloneSession.Close()
+
+	collection := cloneSession.DB("kargos").C("deployment")
+
+	// Get the list of deployment names from the deployList
+	deploymentNames := make([]string, 0)
+	for _, deploy := range deployList {
+		deploymentNames = append(deploymentNames, deploy.Name)
+	}
+
+	// Delete the deployment from the database if it's not in the deploymentNames list
+	_, err := collection.RemoveAll(bson.M{"name": bson.M{"$nin": deploymentNames}})
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	log.Println("Deployment Data deleted successfully")
 }

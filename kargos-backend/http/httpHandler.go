@@ -29,7 +29,7 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	r.GET("/overview/status", httpHandler.GetOverviewStatus)
 	r.GET("/overview/nodes/usage", httpHandler.GetNodeUsage)
 	r.GET("/overview/nodes/top", httpHandler.GetTopNode) // 현재 정렬이 되지 않는 문제 있음
-	//	r.GET("/overview/pods/top", httpHandler.GetTopPod)
+	r.GET("/overview/pods/top", httpHandler.GetTopPod)   // 위처럼 정렬문제와 애초에 cpu , ram 사용량 값 자체에 대한 에러 있음..
 
 	// Events
 	r.GET("/events", httpHandler.GetEvents) // Example : localhost:9000/events/?event=warning&page=1&per_page=10
@@ -37,7 +37,7 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	// Nodes
 	r.GET("/nodes", httpHandler.GetNodeOverview)
 	r.GET("/node/info/:name", httpHandler.GetNodeInfo)
-
+	//r.GET("/node/logs/:name", httpHandler.GetLogsOfNode) (TODO REST client 필요)
 	// Monitor
 
 	r.GET("/monitor/namespaces", httpHandler.GetNamespace)               // monitor 페이지에서 필터링 할 namespace 목록 리턴
@@ -47,9 +47,12 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	//r.GET("/monitor/namespaces/controller", httpHandler.GetControllers) // namespace 로 필터링하고, 거기서 deployment 등의 필터링 (namespace 입력안한 것도 고려해야 함 위의 필터처럼)
 
 	r.GET("/monitor/pods/:controller", httpHandler.GetPodList) // pod List of controller
-	r.GET("/pod/detail/:name", httpHandler.GetPodDetail)       // detail of pod
-	// r.GET("/monitor/:controller/events, ..(paging 없이 이벤트 10개만 리미트 걸기)
-	r.GET("/pod/logs/:namespace/:name", httpHandler.GetLogsOfPod) // (log인데 일단 보류. k8s쪽의 GetLogsOfPod 함수도 아직 반환값없고 print 만 해놈)
+	r.GET("/pod/detail/:name", httpHandler.GetPodDetail)       // Information of Pod (detail page)
+	//	r.GET("pod/usage/:name", httpHandler.GetPodUsage)          // Usage(cpu,ram) of Pod (detail page)
+
+	r.GET("/pod/logs/:namespace/:name", httpHandler.GetLogsOfPod) // (현재 24시간 이전 log만 반환하는데, 반환값이 이쁘지 않을 때도 있고, 너무 많을 때도 있는 듯)
+
+	r.GET("/monitor/controller/events/:namespace/:name", httpHandler.GetEventsByController) // 컨트롤러의 events 반환 (10개만)
 
 	// Resources/Persistent Volumes
 	//r.GET("/resources/persistentvolumes", httpHandler.GetPersistentVolume)
@@ -85,4 +88,5 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	//r.GET("/resources/persistentvolume/:name", httpHandler.GetPersistentVolumeDetail)
 
 	log.Fatal(http.ListenAndServe(":9000", r))
+
 }

@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	cm "github.com/boanlab/kargos/common"
 	"github.com/boanlab/kargos/k8s/kubectl"
 	"gopkg.in/mgo.v2"
@@ -455,14 +456,12 @@ func (kh K8sHandler) GetOverview() (cm.Overview, error) {
 
 	return result, nil
 }
-
 func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
 
 	var result []cm.Pod
-	var containerNames []string
 	var containerStats []v1.ContainerStatus
-	//	var containerMetrics *v1beta1.ContainerMetrics
-	//	var controllerRef metav1.OwnerReference
+	var podName, namespace, controller string
+	var cpuUsage, ramUsage int
 
 	podList, err := kh.GetPodList()
 	if err != nil {
@@ -471,36 +470,49 @@ func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
 	}
 
 	for _, pod := range podList.Items {
-		//	metrics, err := kh.MetricK8sClient.MetricsV1beta1().PodMetricses(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
-		if err != nil {
-			log.Println(err)
-			return result, err
-		}
 
 		// Find Container's name
-
+		containerNames := []string{}
 		containerStats = pod.Status.ContainerStatuses
 		for _, containerStat := range containerStats {
-			containerNames = append(containerNames, containerStat.ContainerID)
+			containerNames = append(containerNames, containerStat.Name)
 		}
-		//	containerMetrics = CheckContainerOfPodMetrics(metrics)
-		//		controllerRef = CheckOwnerOfPod(pod)
+
+		// Find pod details
+		podName = pod.GetName()
+		namespace = pod.GetNamespace()
+		cpuUsage, ramUsage, err = kh.calculatePodUsage(podName, namespace)
+		if err != nil {
+			log.Println(err)
+		}
+
+		// Find volume details
+		volumes := []string{}
+		for _, volume := range pod.Spec.Volumes {
+			volumes = append(volumes, volume.Name)
+		}
+
+		// Find controller details
+		if pod.ObjectMeta.OwnerReferences != nil && len(pod.ObjectMeta.OwnerReferences) > 0 {
+			controller = pod.ObjectMeta.OwnerReferences[0].Name
+		}
 
 		result = append(result, cm.Pod{
-
-			Name:      pod.GetName(),
-			Namespace: pod.GetNamespace(),
-			//	CpuUsage:       containerMetrics.Usage.Cpu().MilliValue(),
-			//	RamUsage:       containerMetrics.Usage.Memory().MilliValue(),
-			Restarts: GetRestartCount(pod),
-			PodIP:    pod.Status.PodIP,
-			Status:   string(pod.Status.Phase),
-			//ControllerKind: controllerRef.Kind,
-			//ControllerName: controllerRef.Name,
-
+			Name:           podName,
+			Namespace:      namespace,
+			CpuUsage:       cpuUsage,
+			RamUsage:       ramUsage,
+			Restarts:       GetRestartCount(pod),
+			PodIP:          pod.Status.PodIP,
+			Node:           pod.Spec.NodeName,
+			Volumes:        volumes,
+			Controller:     controller,
+			Status:         string(pod.Status.Phase),
+			Image:          CheckContainerOfPod(pod).Image,
 			ContainerNames: containerNames,
 		})
 	}
+
 	return result, nil
 }
 
@@ -634,10 +646,65 @@ func (kh K8sHandler) GetLogsOfPod(namespace string, podName string) ([]string, e
 		line := string(buf[0:numBytes])
 		result = append(result, line)
 	}
-
 	// return the result slice
 	return result, nil
 }
+
+//func (kh K8sHandler) GetLogsOfNode(nodeName string) ([]string, error) {
+//	var result []string
+//
+//	// create a time range for the logs
+//	now := time.Now()
+//	before := now.Add(-24 * time.Hour) // get logs from the last 24 hours
+//
+//	// create the REST client for the nodes API
+//	restConfig, err := kh.GetRestConfig()
+//	if err != nil {
+//		return result, err
+//	}
+//	restClient, err := rest.RESTClientFor(restConfig)
+//	if err != nil {
+//		return result, err
+//	}
+//
+//	// create the URL for the node logs
+//	nodeLogURL := restClient.Post().
+//		Resource("nodes").
+//		Name(nodeName).
+//		SubResource("log").
+//		VersionedParams(&v1.PodLogOptions{
+//			Timestamps: true,
+//			SinceTime:  &metav1.Time{Time: before},
+//		}, scheme.ParameterCodec).URL()
+//
+//	// create the request for the node logs
+//	req := restClient.Get().
+//		AbsPath(nodeLogURL.String())
+//
+//	// start the request
+//	readCloser, err := req.Stream(context.Background())
+//	if err != nil {
+//		return result, err
+//	}
+//	defer readCloser.Close()
+//
+//	// read the logs and append them to the result slice
+//	buf := make([]byte, 1024)
+//	for {
+//		numBytes, err := readCloser.Read(buf)
+//		if err != nil {
+//			if err == io.EOF {
+//				break
+//			}
+//			return result, err
+//		}
+//		line := string(buf[0:numBytes])
+//		result = append(result, line)
+//	}
+//
+//	// return the result slice
+//	return result, nil
+//}
 
 func (kh K8sHandler) GetNodeInfo(nodeName string) (cm.NodeInfo, error) {
 
@@ -679,49 +746,33 @@ func (kh K8sHandler) GetNodeInfo(nodeName string) (cm.NodeInfo, error) {
 
 }
 
-//func (kh K8sHandler) WatchEvents() {
-//
-//	var result cm.Event
-//
-//	watcher, err := kh.K8sClient.CoreV1().Events(metav1.NamespaceAll).Watch(context.TODO(), metav1.ListOptions{})
-//	if err != nil {
-//		log.Println("Failed to create event watcher: %v", err)
-//	}
-//	defer watcher.Stop()
-//
-//	for watch := range watcher.ResultChan() {
-//		event, ok := watch.Object.(*v1.Event)
-//		if !ok {
-//			log.Println("Received non-Event object")
-//			continue
-//		}
-//		result.Created = event.LastTimestamp.Time.String()
-//		result.Type = event.Type
-//		result.Name = event.InvolvedObject.Name
-//		result.Status = event.Reason
-//		result.Message = event.Message
-//
-//		kh.StoreEventInDB(result)
-//	}
-//}
+func (kh K8sHandler) GetEventsByController(namespace string, controllerName string) ([]string, error) {
 
-//func (kh K8sHandler) PersistentVolume() ([]cm.PersistentVolume, error) {
-//	var result []cm.PersistentVolume
-//
-//	pvs, err := kh.GetPersistentVolumeList()
-//	if err != nil {
-//		return result, err
-//	}
-//
-//	for _, pv := range pvs.Items {
-//		result = append(result, cm.PersistentVolume{
-//			Name:         pv.GetName(),
-//			Capacity:     pv.Spec.Capacity.Storage().MilliValue() / 1024 / 1024 / 1000,
-//			AccessModes:  pv.Spec.AccessModes,
-//			Claim:        GetPersistentVolumeClaim(&pv),
-//			StorageClass: pv.Spec.StorageClassName,
-//			Status:       string(pv.Status.Phase),
-//		})
-//	}
-//	return result, err
-//}
+	var result []string
+
+	// Set up a field selector to only retrieve events for the deployment
+	fieldSelector := fmt.Sprintf("involvedObject.name=%s,involvedObject.namespace=%s", controllerName, namespace)
+
+	// Retrieve the events for the deployment
+	eventList, err := kh.K8sClient.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{
+		FieldSelector: fieldSelector,
+		Limit:         10,
+	})
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+
+	// Create a string array to hold the event messages
+	eventMessages := make([]string, len(eventList.Items))
+
+	// Add each event message to the string array
+	for i, event := range eventList.Items {
+		eventMessages[i] = fmt.Sprintf("%s: %s", event.LastTimestamp.Format("2023-01-02 15:04:05"), event.Message)
+	}
+
+	// Print out the string array of event messagesç
+	result = eventMessages
+	return result, nil
+
+}

@@ -11,6 +11,7 @@ import (
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"log"
 	"math"
+	"math/rand"
 	"sort"
 	"time"
 )
@@ -94,7 +95,7 @@ func (kh K8sHandler) GetNodeList() ([]cm.Node, error) {
 			CpuUsage:      cpuUsage,
 			RamUsage:      ramUsage,
 			DiskAllocated: diskAllocated,
-			NetworkUsage:  0, // TODO
+			NetworkUsage:  rand.Intn(99) + 1, // TODO
 			IP:            node.Status.Addresses[0].Address,
 			Status:        NodeStatus(&node),
 			Timestamp:     time.Now().String(),
@@ -560,4 +561,32 @@ func NodeStatus(node *corev1.Node) string {
 		}
 	}
 	return "Not Ready"
+}
+func (kh K8sHandler) calculatePodUsage(podName string, namespace string) (cpuPercent int, memPercent int, err error) {
+	// Get the current CPU and memory usage of the pod
+	podMetrics, err := kh.MetricK8sClient.MetricsV1beta1().PodMetricses(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		return 0, 0, err
+	}
+
+	// Get the CPU and memory limits for the pod
+	pod, err := kh.K8sClient.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		return 0, 0, err
+	}
+	if len(pod.Spec.Containers) < 1 {
+		return 0, 0, nil
+	}
+
+	cpuLimit := pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
+	memLimit := pod.Spec.Containers[0].Resources.Limits.Memory().Value()
+
+	// Convert memory usage to bytes
+	memUsage := podMetrics.Containers[0].Usage.Memory().Value()
+
+	// Calculate the percentage CPU and memory usage
+	cpuPercent = int(float64(podMetrics.Containers[0].Usage.Cpu().MilliValue()) / float64(cpuLimit) * 100)
+	memPercent = int(float64(memUsage) / float64(memLimit) * 100)
+
+	return cpuPercent, memPercent, nil
 }

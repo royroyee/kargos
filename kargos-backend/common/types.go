@@ -202,14 +202,17 @@ type Controller struct {
 
 // Pod
 type Pod struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	CpuUsage  int64  `json:"cpuUsage"`
-	RamUsage  int64  `json:"ramUsage"`
-	Restarts  int32  `json:"restarts"`
-	PodIP     string `json:"pod_ip"`
-	Status    string `json:"status"`
-	Image     string `json:"image"`
+	Name       string   `json:"name"`
+	Namespace  string   `json:"namespace"`
+	CpuUsage   int      `json:"cpuUsage"`
+	RamUsage   int      `json:"ramUsage"`
+	Restarts   int32    `json:"restarts"`
+	PodIP      string   `json:"pod_ip"`
+	Node       string   `json:"node"`
+	Volumes    []string `json:"volumes"`
+	Controller string   `json:"controller"`
+	Status     string   `json:"status"`
+	Image      string   `json:"image"`
 
 	//ControllerKind string `json:"controller_kind"`
 	//ControllerName string `json:"controller_name"`
@@ -219,14 +222,22 @@ type Pod struct {
 	ContainerNames []string
 }
 
-type PodOverview struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	CpuUsage  int64  `json:"cpuUsage"`
-	RamUsage  int64  `json:"ramUsage"`
-	Restarts  int32  `json:"restarts"`
-	PodIP     string `json:"pod_ip"`
-	Status    string `json:"status"`
+type PodUsage struct {
+	Name     string `json:"name"`
+	CpuUsage int    `json:"cpuUsage"`
+	RamUsage int    `json:"ramUsage"`
+}
+
+type PodInfo struct {
+	Name       string   `json:"name"`
+	Namespace  string   `json:"namespace"`
+	Image      string   `json:"image"`
+	Restarts   int32    `json:"restarts"`
+	PodIP      string   `json:"pod_ip"`
+	Node       string   `json:"node"`
+	Volumes    []string `json:"volumes"`
+	Controller string   `json:"controller"`
+	Status     string   `json:"status"`
 }
 
 type PodsOfController struct {

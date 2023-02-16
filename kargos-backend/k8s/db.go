@@ -16,11 +16,10 @@ func (kh K8sHandler) DBSession() {
 	defer kh.session.Close()
 
 	// Store data in the DB every 1 hour
-	insertTicker := time.NewTicker(1 * time.Hour)
+	insertTicker := time.NewTicker(1 * time.Minute)
 	go func() {
 		for range insertTicker.C {
 			kh.storeNodeInDB()
-			//	kh.storePersistentVolumeInDB()
 		}
 	}()
 
@@ -93,7 +92,7 @@ func (kh K8sHandler) storeNodeInDB() {
 	}
 
 	// Delete values that should not be in db before saving node data.
-	//kh.deleteNodeFromDB(nodeList) TODO: 아래 중복 허용한거 완료되면 사용해야할 함수임
+	//kh.deleteNodeFromDB(nodeList) //TODO: 아래 중복 허용한거 완료되면 사용해야할 함수임
 
 	// Use its own session to avoid any concurrent use issues
 	cloneSession := kh.session.Clone()
@@ -104,6 +103,7 @@ func (kh K8sHandler) storeNodeInDB() {
 	bulk := collection.Bulk()
 	for _, node := range nodeList {
 		bulk.Upsert(bson.M{"name": node.Name}, node) // TODO node metric 시계열 정보 뽑으려면 중복 허용해야함(Insert)
+		//bulk.Insert(node)
 	}
 	_, err = bulk.Run()
 	if err != nil {
@@ -193,6 +193,42 @@ func (kh K8sHandler) GetTopNode() (cm.TopNode, error) {
 		name := node["name"].(string)
 		cpuUsage := int(node["cpuusage"].(float64))
 		ramUsage := int(node["ramusage"].(float64))
+		result.Cpu[name] = cpuUsage
+		result.Ram[name] = ramUsage
+	}
+
+	return result, nil
+}
+
+func (kh K8sHandler) GetTopPod() (cm.TopPod, error) {
+	var result cm.TopPod
+
+	collection := kh.session.DB("kargos").C("pod")
+
+	// Find the top 3 nodes with highest cpuusage and ramusage
+	pipe := collection.Pipe([]bson.M{
+		bson.M{"$sort": bson.M{"cpuusage": -1, "ramusage": -1}},
+		bson.M{"$limit": 3},
+		bson.M{"$project": bson.M{
+			"cpuusage": 1,
+			"ramusage": 1,
+			"name":     1,
+			"_id":      0,
+		}},
+	})
+	var topPods []bson.M
+	err := pipe.All(&topPods)
+	if err != nil {
+		return result, err
+	}
+
+	result.Cpu = make(map[string]int)
+	result.Ram = make(map[string]int)
+
+	for _, pod := range topPods {
+		name := pod["name"].(string)
+		cpuUsage := int(pod["cpuusage"].(int64))
+		ramUsage := int(pod["ramusage"].(int64))
 		result.Cpu[name] = cpuUsage
 		result.Ram[name] = ramUsage
 	}
@@ -370,6 +406,38 @@ func (kh K8sHandler) GetRecordOfPod(podName string) (cm.Pod, error) {
 	if err != nil {
 		log.Println(err)
 		return cm.Pod{}, err
+	}
+
+	return result, nil
+
+}
+
+func (kh K8sHandler) GetInfoOfPod(podName string) (cm.PodInfo, error) {
+	var result = cm.PodInfo{}
+
+	filter := bson.M{"name": podName}
+	collection := kh.session.DB("kargos").C("pod")
+
+	err := collection.Find(filter).One(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+
+	return result, nil
+
+}
+
+func (kh K8sHandler) GetPodUsage(podName string) (cm.PodUsage, error) {
+	var result = cm.PodUsage{}
+
+	filter := bson.M{"name": podName}
+	collection := kh.session.DB("kargos").C("pod")
+
+	err := collection.Find(filter).One(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
 	}
 
 	return result, nil

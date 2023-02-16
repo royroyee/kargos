@@ -29,7 +29,9 @@ func NewK8sHandler() *K8sHandler {
 	kh := &K8sHandler{
 		K8sClient:       cm.InitK8sClient(),
 		MetricK8sClient: cm.InitMetricK8sClient(),
-		session:         GetDBSession(),
+		//K8sClient:       cm.ClientSetOutofCluster(),
+		//MetricK8sClient: cm.MetricClientSetOutofCluster(),
+		session: GetDBSession(),
 	}
 
 	////// Out of Cluster
@@ -421,11 +423,13 @@ func (kh K8sHandler) WatchEvents() {
 			log.Println("Received non-Event object")
 			continue
 		}
+
 		result.Created = event.LastTimestamp.Time.String()
-		result.Type = event.Type
 		result.Name = event.InvolvedObject.Name
+		result.Type = event.InvolvedObject.Kind
 		result.Status = event.Reason
 		result.Message = event.Message
+		result.EventLevel = event.Type
 
 		kh.StoreEventInDB(result)
 	}
@@ -475,7 +479,6 @@ func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
 			containerNames = append(containerNames, containerStat.Name)
 		}
 
-		// Find pod details
 		podName = pod.GetName()
 		namespace = pod.GetNamespace()
 		cpuUsage, ramUsage, err = kh.calculatePodUsage(podName, namespace)
@@ -483,7 +486,6 @@ func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
 			log.Println(err)
 		}
 
-		// Find volume details
 		volumes := []string{}
 		for _, volume := range pod.Spec.Volumes {
 			volumes = append(volumes, volume.Name)
@@ -516,6 +518,7 @@ func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
 func (kh K8sHandler) GetController() ([]cm.Controller, error) {
 
 	var result []cm.Controller
+	var volumes []v1.Volume
 
 	deployList, err := kh.GetDeploymentList()
 	if err != nil {
@@ -534,9 +537,8 @@ func (kh K8sHandler) GetController() ([]cm.Controller, error) {
 		for _, pod := range podList.Items {
 			pods = append(pods, pod.GetName())
 		}
-
 		var volumeList []string
-		volumes := deploy.Spec.Template.Spec.Volumes
+		volumes = deploy.Spec.Template.Spec.Volumes
 		for _, volume := range volumes {
 			volumeList = append(volumeList, volume.Name)
 		}
@@ -568,10 +570,17 @@ func (kh K8sHandler) GetController() ([]cm.Controller, error) {
 			pods = append(pods, pod.Name)
 		}
 
+		var volumeOfState []string
+		volumes = statefulSet.Spec.Template.Spec.Volumes
+		for _, volume := range volumes {
+			volumeOfState = append(volumeOfState, volume.Name)
+		}
+
 		result = append(result, cm.Controller{
 			Name:      statefulSet.GetName(),
 			Type:      "StatefulSet",
 			Namespace: statefulSet.GetNamespace(),
+			Volumes:   volumeOfState,
 		})
 	}
 
@@ -592,11 +601,17 @@ func (kh K8sHandler) GetController() ([]cm.Controller, error) {
 		for _, pod := range podList.Items {
 			pods = append(pods, pod.Name)
 		}
+		var volumeOfDaemon []string
+		volumes = daemonSet.Spec.Template.Spec.Volumes
+		for _, volume := range volumes {
+			volumeOfDaemon = append(volumeOfDaemon, volume.Name)
+		}
 
 		result = append(result, cm.Controller{
 			Name:      daemonSet.GetName(),
 			Type:      "DaemonSet",
 			Namespace: daemonSet.GetNamespace(),
+			Volumes:   volumeOfDaemon,
 		})
 	}
 
@@ -767,3 +782,20 @@ func (kh K8sHandler) GetEventsByController(namespace string, controllerName stri
 	return result, nil
 
 }
+
+func (kh K8sHandler) NumberOfNodes() (cm.Count, error) {
+	var result cm.Count
+
+	nodes, err := kh.K8sClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return result, err
+	}
+
+	result.Count = len(nodes.Items)
+	return result, err
+}
+
+//func (kh K8sHandler) GetVolumeDetail(name string) (cm.Volume, error) {
+//	var result cm.Volume
+//
+//}

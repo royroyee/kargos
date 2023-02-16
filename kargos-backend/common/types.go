@@ -174,11 +174,12 @@ type Container struct {
 
 // Event
 type Event struct {
-	Created string `json:"created"`
-	Type    string `json:"type"`
-	Name    string `json:"name"`
-	Status  string `json:"status"`
-	Message string `json:"message"`
+	Created    string `json:"created"`
+	EventLevel string `json:"event_level"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Message    string `json:"message"`
+	Type       string `json:"type"`
 }
 
 type NodeStatus struct {
@@ -303,4 +304,8 @@ type PersistentVolume struct {
 	Claim        string                          `json:"claim"`
 	StorageClass string                          `json:"storage_class"`
 	Status       string                          `json:"status"`
+}
+
+type Count struct {
+	Count int `json:"count"`
 }

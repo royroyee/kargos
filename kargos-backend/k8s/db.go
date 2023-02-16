@@ -63,7 +63,7 @@ func (kh K8sHandler) DBSession() {
 func GetDBSession() *mgo.Session {
 	log.Println("Create DB Session .. ")
 	session, err := mgo.Dial("mongodb://db-service:27017") // db-service is name of mongodb service(kubernetes)
-	//session, err := mgo.Dial("mongodb://localhost:27017")
+	// session, err := mgo.Dial("mongodb://localhost:27017")
 
 	//// Check environment variables for mongodb.
 	//mongodbIP := os.Getenv("MONGODB_LISTEN_ADDR")
@@ -438,17 +438,6 @@ func (kh K8sHandler) GetPodUsage(podName string) (cm.PodUsage, error) {
 
 }
 
-func (kh K8sHandler) StoreEvents(event string) {
-	cloneSession := kh.session.Clone()
-
-	collection := cloneSession.DB("kargos").C("event")
-
-	err := collection.Insert(event)
-	if err != nil {
-		log.Println(err)
-	}
-}
-
 func (kh K8sHandler) GetEvents(eventType string, page int, perPage int) ([]cm.Event, error) {
 	var result []cm.Event
 	collection := kh.session.DB("kargos").C("event")
@@ -456,7 +445,7 @@ func (kh K8sHandler) GetEvents(eventType string, page int, perPage int) ([]cm.Ev
 	skip := (page - 1) * perPage
 	limit := perPage
 
-	filter := bson.M{"type": strings.Title(eventType)}
+	filter := bson.M{"eventlevel": strings.Title(eventType)}
 	if eventType == "" {
 		filter = bson.M{}
 	}

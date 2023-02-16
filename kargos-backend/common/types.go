@@ -182,23 +182,22 @@ type Event struct {
 }
 
 type NodeStatus struct {
-	NotReady int `json:"not_ready""`
-	Ready    int `json:"ready"`
+	NotReady []string `json:"not_ready""`
+	Ready    []string `json:"ready"`
 }
 
 type PodStatus struct {
-	Error   int `json:"error"`
-	Pending int `json:"pending"`
-	Running int `json:"running"`
+	Error   []string `json:"error"`
+	Pending []string `json:"pending"`
+	Running int      `json:"running"`
 }
 
 // Controllers
 type Controller struct {
-	Name         string   `json:"name"`
-	Type         string   `json:"type"`
-	Namespace    string   `json:"namespace"`
-	NumberOfPods int32    `json:"number_of_pods"`
-	Pods         []string `json:"pods"`
+	Name      string   `json:"name"`
+	Type      string   `json:"type"`
+	Namespace string   `json:"namespace"`
+	Pods      []string `json:"pods"`
 }
 
 // Pod
@@ -212,8 +211,8 @@ type Pod struct {
 	Status    string `json:"status"`
 	Image     string `json:"image"`
 
-	ControllerKind string `json:"controller_kind"`
-	ControllerName string `json:"controller_name"`
+	//ControllerKind string `json:"controller_kind"`
+	//ControllerName string `json:"controller_name"`
 
 	// Container struct
 	Containers     []Container `json:"containers"`
@@ -230,6 +229,10 @@ type PodOverview struct {
 	Status    string `json:"status"`
 }
 
+type PodsOfController struct {
+	Pods []string `json:"pods"`
+}
+
 type Node struct {
 	Name          string  `json:"name"`
 	CpuUsage      float64 `json:"cpu_usage"`
@@ -237,6 +240,42 @@ type Node struct {
 	DiskAllocated float64 `json:"disk_allocated"`
 	NetworkUsage  int     `json:"network_usage"`
 	IP            string  `json:"ip"`
+	Status        string  `json:"status"`
+	Timestamp     string  `json:"timestamp"`
+}
+
+type NodeOverview struct {
+	Name          string `json:"name"`
+	CpuUsage      int    `json:"cpu_usage"`
+	RamUsage      int    `json:"ram_usage"`
+	DiskAllocated int    `json:"disk_allocated"`
+	NetworkUsage  int    `json:"network_usage"`
+	IP            string `json:"ip"`
+	Status        string `json:"status"`
+}
+type NodeUsage struct {
+	CpuUsage int `json:"cpu_usage"`
+	RamUsage int `json:"ram_usage"`
+}
+
+type TopNode struct {
+	Cpu map[string]int `json:"cpu"`
+	Ram map[string]int `json:"ram"`
+}
+
+type TopPod struct {
+	Cpu map[string]int `json:"cpu"`
+	Ram map[string]int `json:"ram"`
+}
+
+type NodeInfo struct {
+	HostName                string  `json:"host_name"`
+	IP                      string  `json:"ip"`
+	KubeletVersion          string  `json:"kubelet_version"`
+	ContainerRuntimeVersion string  `json:"container_runtime_version"`
+	NumContainers           int     `json:"num_containers"`
+	CpuCores                int64   `json:"cpu_cores"`
+	Ram                     float64 `json:"ram"`
 }
 
 type PersistentVolume struct {

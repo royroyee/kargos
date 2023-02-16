@@ -5,7 +5,6 @@ import (
 	"fmt"
 	cm "github.com/boanlab/kargos/common"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,6 +96,8 @@ func (kh K8sHandler) GetNodeList() ([]cm.Node, error) {
 			DiskAllocated: diskAllocated,
 			NetworkUsage:  0, // TODO
 			IP:            node.Status.Addresses[0].Address,
+			Status:        NodeStatus(&node),
+			Timestamp:     time.Now().String(),
 		})
 	}
 	return result, nil
@@ -237,12 +238,30 @@ func (kh K8sHandler) GetTopNamespaces() []string {
 	return result
 }
 
-func (kh K8sHandler) GetNamespaceList() (*corev1.NamespaceList, error) {
+func (kh K8sHandler) GetNamespaceName() ([]string, error) {
+	var result []string
+
 	namespaces, err := kh.K8sClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
+
+	for _, namespace := range namespaces.Items {
+		result = append(result, namespace.GetName())
+	}
+
+	return result, nil
+}
+
+func (kh K8sHandler) GetNamespaceList() (*corev1.NamespaceList, error) {
+
+	namespaces, err := kh.K8sClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
 	return namespaces, nil
 }
 
@@ -375,15 +394,26 @@ func (kh K8sHandler) GetPersistentVolumeByName(name string) (*corev1.PersistentV
 }
 
 // -- Jobs -- //
+//func (kh K8sHandler) GetJobList() (*v1.JobList, error) {
+//	jobs, err := kh.K8sClient.BatchV1().Jobs(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+//	if err != nil {
+//		log.Println(err)
+//		return nil, err
+//	}
+//
+//	return jobs, nil
+//}
 
-func (kh K8sHandler) GetJobList() (*v1.JobList, error) {
-	jobs, err := kh.K8sClient.BatchV1().Jobs(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+// -- StatefulSets -- //
+
+func (kh K8sHandler) GetStatefulSetList() (*appsv1.StatefulSetList, error) {
+	staefulSetList, err := kh.K8sClient.AppsV1().StatefulSets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 
-	return jobs, nil
+	return staefulSetList, nil
 }
 
 // -- Daemon sets -- //
@@ -469,8 +499,7 @@ func CheckContainerOfDeploy(deployment appsv1.Deployment) (status string, image 
 	return status, image
 }
 
-func (kh K8sHandler) nodeStatus() (ready int, notReady int) {
-	ready, notReady = 0, 0
+func (kh K8sHandler) nodeStatus() (ready []string, notReady []string) {
 
 	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
@@ -480,17 +509,17 @@ func (kh K8sHandler) nodeStatus() (ready int, notReady int) {
 
 	for _, node := range nodeList.Items {
 		if isNodeReady(&node) {
-			ready++
+			ready = append(ready, node.GetName())
 		} else {
-			notReady++
+			notReady = append(ready, node.GetName())
 		}
 	}
 	return ready, notReady
 }
 
-func (kh K8sHandler) podStatus() (running int, pending int, error int) {
+func (kh K8sHandler) podStatus() (running int, pending []string, error []string) {
 
-	running, pending, error = 0, 0, 0
+	running = 0
 
 	podList, err := kh.K8sClient.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
@@ -501,15 +530,15 @@ func (kh K8sHandler) podStatus() (running int, pending int, error int) {
 	for _, pod := range podList.Items {
 		switch pod.Status.Phase {
 		case corev1.PodPending:
-			pending++
+			pending = append(pending, pod.Name)
 		case corev1.PodRunning:
 			running++
 		case corev1.PodSucceeded:
 			running++
 		case corev1.PodFailed:
-			error++
+			error = append(error, pod.Name)
 		default:
-			error++
+			error = append(error, pod.Name)
 		}
 	}
 	return running, pending, error
@@ -522,4 +551,13 @@ func isNodeReady(node *corev1.Node) bool {
 		}
 	}
 	return false
+}
+
+func NodeStatus(node *corev1.Node) string {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			return "Ready"
+		}
+	}
+	return "Not Ready"
 }

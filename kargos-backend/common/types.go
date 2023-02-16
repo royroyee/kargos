@@ -304,3 +304,7 @@ type PersistentVolume struct {
 	StorageClass string                          `json:"storage_class"`
 	Status       string                          `json:"status"`
 }
+
+type Count struct {
+	Count int `json:"count"`
+}

@@ -623,6 +623,19 @@ func (kh K8sHandler) GetControllersByType(controller string, page int, perPage i
 	return result, nil
 }
 
+func (kh K8sHandler) NumberOfEvents() (cm.Count, error) {
+	var result cm.Count
+	collection := kh.session.DB("kargos").C("event")
+
+	count, err := collection.Count()
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	result.Count = count
+	return result, nil
+}
+
 //func (kh K8sHandler) storePersistentVolumeInDB() {
 //	pvList, err := kh.PersistentVolume()
 //	if err != nil {

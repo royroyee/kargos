@@ -183,6 +183,20 @@ func (httpHandler HTTPHandler) GetPodDetail(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusOK)
 }
 
+//func (httpHandler HTTPHandler) GetVolumeDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+//
+//	podDetail, err := httpHandler.k8sHandler.GetVolumeDetail(ps.ByName("name"))
+//	if err != nil {
+//		http.Error(w, err.Error(), http.StatusBadRequest)
+//		return
+//	}
+//	result, err := json.Marshal(&podDetail)
+//
+//	w.Header().Set("Content-Type", "application/json")
+//	w.Write(result)
+//	w.WriteHeader(http.StatusOK)
+//}
+
 func (httpHandler HTTPHandler) GetLogsOfPod(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	logsOfPod, err := httpHandler.k8sHandler.GetLogsOfPod(ps.ByName("namespace"), ps.ByName("name"))
@@ -408,6 +422,43 @@ func (httpHandler HTTPHandler) GetEventsByController(w http.ResponseWriter, r *h
 	}
 
 	result, err := json.Marshal(&nodeInfo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (httpHandler HTTPHandler) GetNumberOfNodes(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+	count, err := httpHandler.k8sHandler.NumberOfNodes()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := json.Marshal(&count)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+func (httpHandler HTTPHandler) GetNumberOfEvents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+	count, err := httpHandler.k8sHandler.NumberOfEvents()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := json.Marshal(&count)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

@@ -9,7 +9,7 @@ import (
 
 func (httpHandler HTTPHandler) GetOverviewStatus(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-	overview, err := httpHandler.k8sHandler.GetOverview()
+	overview, err := httpHandler.k8sHandler.GetOverviewStatus()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -347,12 +347,12 @@ func (httpHandler HTTPHandler) GetNamespace(w http.ResponseWriter, r *http.Reque
 	w.Write(result)
 	w.WriteHeader(http.StatusOK)
 }
-
-func (httpHandler HTTPHandler) GetControllersByNamespace(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+func (httpHandler HTTPHandler) GetControllersByFilter(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
 	// Parse the query parameters
 
 	namespace := r.URL.Query().Get("namespace")
+	controller := r.URL.Query().Get("controller")
 
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil {
@@ -363,8 +363,8 @@ func (httpHandler HTTPHandler) GetControllersByNamespace(w http.ResponseWriter, 
 		perPage = 10
 	}
 
-	controller, err := httpHandler.k8sHandler.GetControllersByNamespace(namespace, page, perPage)
-	result, err := json.Marshal(&controller)
+	controllers, err := httpHandler.k8sHandler.GetControllersByFilter(namespace, controller, page, perPage)
+	result, err := json.Marshal(&controllers)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

@@ -38,10 +38,10 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	r.GET("/nodes", httpHandler.GetNodeOverview)
 	r.GET("/node/info/:name", httpHandler.GetNodeInfo)
 	//r.GET("/node/logs/:name", httpHandler.GetLogsOfNode) (TODO REST client 필요)
-	// Monitor
 
-	r.GET("/monitor/namespaces", httpHandler.GetNamespace)               // monitor 페이지에서 필터링 할 namespace 목록 리턴
-	r.GET("/monitor/controllers", httpHandler.GetControllersByNamespace) // Filtering by Namespace
+	// Monitor
+	r.GET("/monitor/namespaces", httpHandler.GetNamespace)            // monitor 페이지에서 필터링 할 namespace 목록 리턴
+	r.GET("/monitor/controllers", httpHandler.GetControllersByFilter) // Filtering by Namespace
 	// Example "/monitor/controllers" : all Controllers   "/monitor/controllers?namespace=kargos : Controllers of Kargos        localhost:9000/monitor/controllers?namespace=kargos&page=1&per_page=10 (&pagination)
 
 	//r.GET("/monitor/namespaces/controller", httpHandler.GetControllers) // namespace 로 필터링하고, 거기서 deployment 등의 필터링 (namespace 입력안한 것도 고려해야 함 위의 필터처럼)

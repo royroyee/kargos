@@ -198,14 +198,15 @@ type Controller struct {
 	Type      string   `json:"type"`
 	Namespace string   `json:"namespace"`
 	Pods      []string `json:"pods"`
+	Volumes   []string `json:"volumes"`
 }
 
 // Pod
 type Pod struct {
 	Name       string   `json:"name"`
 	Namespace  string   `json:"namespace"`
-	CpuUsage   int      `json:"cpuUsage"`
-	RamUsage   int      `json:"ramUsage"`
+	CpuUsage   float64  `json:"cpuUsage"`
+	RamUsage   float64  `json:"ramUsage"`
 	Restarts   int32    `json:"restarts"`
 	PodIP      string   `json:"pod_ip"`
 	Node       string   `json:"node"`
@@ -287,6 +288,12 @@ type NodeInfo struct {
 	NumContainers           int     `json:"num_containers"`
 	CpuCores                int64   `json:"cpu_cores"`
 	Ram                     float64 `json:"ram"`
+}
+
+type Volume struct {
+	Name      string `json:"name"`
+	ClaimName string `json:"claim_name"`
+	ReadOnly  string `json:"read_only"`
 }
 
 type PersistentVolume struct {

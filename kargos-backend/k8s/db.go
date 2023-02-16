@@ -110,8 +110,6 @@ func (kh K8sHandler) storeNodeInDB() {
 		log.Println(err)
 		return
 	}
-
-	log.Println("Node Data stored successfully")
 }
 
 func (kh K8sHandler) GetNodeOverview(page int, perPage int) ([]cm.NodeOverview, error) {
@@ -348,8 +346,6 @@ func (kh K8sHandler) StorePodInDB(podList []cm.Pod) {
 		log.Println(err)
 		return
 	}
-
-	log.Println("Pod Data stored successfully")
 }
 
 // Delete all Pod data older than 5 Minutes
@@ -380,8 +376,6 @@ func (kh K8sHandler) deletePodFromDB(podList []cm.Pod) {
 		log.Println(err)
 		return
 	}
-
-	log.Println("Pod Data deleted successfully")
 }
 
 func (kh K8sHandler) GetPodsOfController(controller string) (cm.PodsOfController, error) {
@@ -453,8 +447,6 @@ func (kh K8sHandler) StoreEvents(event string) {
 	if err != nil {
 		log.Println(err)
 	}
-
-	log.Println("Event stored successfully")
 }
 
 func (kh K8sHandler) GetEvents(eventType string, page int, perPage int) ([]cm.Event, error) {
@@ -506,9 +498,6 @@ func (kh K8sHandler) StoreEventInDB(event cm.Event) {
 		log.Println(err)
 		return
 	}
-
-	log.Println("Event Data stored successfully")
-
 }
 
 // Delete all event data older than 24 hours
@@ -521,7 +510,6 @@ func (kh K8sHandler) deleteEventFromDB() {
 		log.Println(err)
 		return
 	}
-	log.Println("Old data of events deleted successfully")
 }
 
 func (kh K8sHandler) storeControllerInDB() {
@@ -540,6 +528,7 @@ func (kh K8sHandler) storeControllerInDB() {
 
 	bulk := collection.Bulk()
 	for _, controller := range controllerList {
+		controller.Type = strings.ToLower(controller.Type)
 		bulk.Upsert(bson.M{"name": controller.Name, "namespace": controller.Namespace}, controller)
 	}
 
@@ -571,7 +560,6 @@ func (kh K8sHandler) deleteControllerFromDB(controllerList []cm.Controller) {
 		return
 	}
 
-	log.Println("Controller Data deleted successfully")
 }
 
 func (kh K8sHandler) GetControllers(page int, perPage int) ([]cm.Controller, error) {
@@ -589,18 +577,27 @@ func (kh K8sHandler) GetControllers(page int, perPage int) ([]cm.Controller, err
 	return result, nil
 }
 
-func (kh K8sHandler) GetControllersByNamespace(namespace string, page int, perPage int) ([]cm.Controller, error) {
+func (kh K8sHandler) GetControllersByFilter(namespace string, controller string, page int, perPage int) ([]cm.Controller, error) {
 	var result []cm.Controller
 	collection := kh.session.DB("kargos").C("controller")
 
 	skip := (page - 1) * perPage
 	limit := perPage
-
-	filter := bson.M{"namespace": namespace}
-	if namespace == "" {
-		filter = bson.M{}
+	var filter bson.M
+	if namespace != "" && controller != "" {
+		filter = bson.M{
+			"namespace": namespace,
+			"type":      controller,
+		}
+	} else if namespace != "" {
+		filter = bson.M{
+			"namespace": namespace,
+		}
+	} else if controller != "" {
+		filter = bson.M{
+			"type": controller,
+		}
 	}
-
 	err := collection.Find(filter).Skip(skip).Limit(limit).All(&result)
 	if err != nil {
 		log.Println(err)

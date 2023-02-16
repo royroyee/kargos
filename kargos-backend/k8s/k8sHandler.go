@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	cm "github.com/boanlab/kargos/common"
-	"github.com/boanlab/kargos/k8s/kubectl"
 	"gopkg.in/mgo.v2"
 	"io"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
-	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"log"
 	"math"
@@ -88,49 +85,49 @@ func NewK8sHandler() *K8sHandler {
 //	return result, nil
 //}
 
-// controllers/deployments/overview
-func (kh K8sHandler) GetDeploymentOverview() ([]cm.Deployment, error) {
+//// controllers/deployments/overview
+//func (kh K8sHandler) GetDeploymentOverview() ([]cm.Deployment, error) {
+//
+//	var result []cm.Deployment
+//
+//	deployList, err := kh.GetDeploymentList()
+//	if err != nil {
+//		return []cm.Deployment{}, err
+//	}
+//
+//	for _, deploy := range deployList.Items {
+//		status, image := CheckContainerOfDeploy(deploy)
+//		result = append(result, cm.Deployment{
+//			Name:      deploy.GetName(),
+//			Namespace: deploy.GetNamespace(),
+//			Image:     image,
+//			Status:    status,
+//			Labels:    deploy.Labels,
+//			Created:   deploy.GetCreationTimestamp().String(),
+//		})
+//	}
+//	return result, nil
+//}
 
-	var result []cm.Deployment
-
-	deployList, err := kh.GetDeploymentList()
-	if err != nil {
-		return []cm.Deployment{}, err
-	}
-
-	for _, deploy := range deployList.Items {
-		status, image := CheckContainerOfDeploy(deploy)
-		result = append(result, cm.Deployment{
-			Name:      deploy.GetName(),
-			Namespace: deploy.GetNamespace(),
-			Image:     image,
-			Status:    status,
-			Labels:    deploy.Labels,
-			Created:   deploy.GetCreationTimestamp().String(),
-		})
-	}
-	return result, nil
-}
-
-// GetDeploymentSpecific retrieves information of a deployment. This will also get details as well.
-func (kh K8sHandler) GetDeploymentSpecific(namespace string, name string) (cm.Deployment, error) {
-	ret := cm.Deployment{}
-
-	deployment, err := kh.K8sClient.AppsV1().Deployments(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Name = deployment.GetName()
-	ret.Namespace = deployment.GetNamespace()
-	//ret.Image = deployment.Spec.Template.Spec.Containers[0].Image
-	//ret.Status = string(deployment.Status.Conditions[0].Status)
-	//ret.Labels = deployment.Labels
-	//ret.Created = deployment.GetCreationTimestamp().String()
-	ret.Details = generateDescribeString(name, ret.Namespace, "deployment")
-
-	return ret, nil
-}
+//// GetDeploymentSpecific retrieves information of a deployment. This will also get details as well.
+//func (kh K8sHandler) GetDeploymentSpecific(namespace string, name string) (cm.Deployment, error) {
+//	ret := cm.Deployment{}
+//
+//	deployment, err := kh.K8sClient.AppsV1().Deployments(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+//	if err != nil {
+//		return ret, err
+//	}
+//
+//	ret.Name = deployment.GetName()
+//	ret.Namespace = deployment.GetNamespace()
+//	//ret.Image = deployment.Spec.Template.Spec.Containers[0].Image
+//	//ret.Status = string(deployment.Status.Conditions[0].Status)
+//	//ret.Labels = deployment.Labels
+//	//ret.Created = deployment.GetCreationTimestamp().String()
+//	ret.Details = generateDescribeString(name, ret.Namespace, "deployment")
+//
+//	return ret, nil
+//}
 
 //// controlelrs/ingresses/overview
 //func (kh K8sHandler) GetIngressOverview() ([]cm.Ingress, error) {
@@ -393,18 +390,18 @@ func (kh K8sHandler) GetDeploymentSpecific(namespace string, name string) (cm.De
 //	return result, err
 //}
 
-// generateDescribeString generates string that represent kubernetes resource like "kubectl describe"
-// The code originated from kubectl source code's kubectl/pkg/cmd/cmd.go
-func generateDescribeString(name string, namespace string, resourceType string) string {
-	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag().WithDiscoveryBurst(300).WithDiscoveryQPS(50.0)
-	cmdutil.NewMatchVersionFlags(kubeConfigFlags)
-	matchVersionKubeConfigFlags := cmdutil.NewMatchVersionFlags(kubeConfigFlags)
-	f := cmdutil.NewFactory(matchVersionKubeConfigFlags)
-	flags := kubectl.NewDescribeFlags(f, genericclioptions.IOStreams{})
-	o, _ := flags.ToOptions("kubectl", []string{resourceType, name, "namespace", namespace})
-	ret := o.Run()
-	return ret
-}
+//// generateDescribeString generates string that represent kubernetes resource like "kubectl describe"
+//// The code originated from kubectl source code's kubectl/pkg/cmd/cmd.go
+//func generateDescribeString(name string, namespace string, resourceType string) string {
+//	kubeConfigFlags := genericclioptions.NewConfigFlags(true).WithDeprecatedPasswordFlag().WithDiscoveryBurst(300).WithDiscoveryQPS(50.0)
+//	cmdutil.NewMatchVersionFlags(kubeConfigFlags)
+//	matchVersionKubeConfigFlags := cmdutil.NewMatchVersionFlags(kubeConfigFlags)
+//	f := cmdutil.NewFactory(matchVersionKubeConfigFlags)
+//	flags := kubectl.NewDescribeFlags(f, genericclioptions.IOStreams{})
+//	o, _ := flags.ToOptions("kubectl", []string{resourceType, name, "namespace", namespace})
+//	ret := o.Run()
+//	return ret
+//}
 
 //
 
@@ -435,7 +432,7 @@ func (kh K8sHandler) WatchEvents() {
 }
 
 // overview
-func (kh K8sHandler) GetOverview() (cm.Overview, error) {
+func (kh K8sHandler) GetOverviewStatus() (cm.Overview, error) {
 	var result cm.Overview
 
 	ready, notReady := kh.nodeStatus()
@@ -461,7 +458,7 @@ func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
 	var result []cm.Pod
 	var containerStats []v1.ContainerStatus
 	var podName, namespace, controller string
-	var cpuUsage, ramUsage int
+	var cpuUsage, ramUsage float64
 
 	podList, err := kh.GetPodList()
 	if err != nil {
@@ -538,27 +535,21 @@ func (kh K8sHandler) GetController() ([]cm.Controller, error) {
 			pods = append(pods, pod.GetName())
 		}
 
+		var volumeList []string
+		volumes := deploy.Spec.Template.Spec.Volumes
+		for _, volume := range volumes {
+			volumeList = append(volumeList, volume.Name)
+		}
+
 		result = append(result, cm.Controller{
 			Name:      deploy.GetName(),
 			Type:      "Deployment",
 			Namespace: deploy.GetNamespace(),
 			Pods:      pods,
+			Volumes:   volumeList,
 		})
 	}
 
-	//jobList, err := kh.GetJobList()
-	//if err != nil {
-	//	return []cm.Controller{}, err
-	//}
-	//
-	//for _, job := range jobList.Items {
-	//	result = append(result, cm.Controller{
-	//		Name:         job.GetName(),
-	//		Type:         "Job",
-	//		Namespace:    job.GetNamespace(),
-	//		NumberOfPods: 1,
-	//	})
-	//}
 	statefulSetList, err := kh.GetStatefulSetList()
 	if err != nil {
 		return []cm.Controller{}, err

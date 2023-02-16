@@ -423,11 +423,13 @@ func (kh K8sHandler) WatchEvents() {
 			log.Println("Received non-Event object")
 			continue
 		}
+
 		result.Created = event.LastTimestamp.Time.String()
-		result.Type = event.Type
 		result.Name = event.InvolvedObject.Name
+		result.Type = event.InvolvedObject.Kind
 		result.Status = event.Reason
 		result.Message = event.Message
+		result.EventLevel = event.Type
 
 		kh.StoreEventInDB(result)
 	}

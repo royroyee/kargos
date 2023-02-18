@@ -28,7 +28,7 @@ func (httpHandler HTTPHandler) GetOverviewStatus(w http.ResponseWriter, r *http.
 
 func (httpHandler HTTPHandler) GetNodeUsage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-	nodeUsage, err := httpHandler.k8sHandler.GetNodeUsage()
+	nodeUsage, err := httpHandler.k8sHandler.GetNodeUsageAvg()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -83,92 +83,6 @@ func (httpHandler HTTPHandler) GetTopPod(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusOK)
 }
 
-//func (httpHandler HTTPHandler) GetNodeDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-//	nodeDetail, err := httpHandler.k8sHandler.GetNodeDetail(ps.ByName("name"))
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//	result, err := json.Marshal(&nodeDetail)
-//
-//	w.Header().Set("Content-Type", "application/json")
-//	w.Write(result)
-//	w.WriteHeader(http.StatusOK)
-//}
-
-//func (httpHandler HTTPHandler) GetDeploymentOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-//	deployOverview, err := httpHandler.k8sHandler.GetDeploymentOverview()
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//
-//	result, err := json.Marshal(&deployOverview)
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//
-//	w.Header().Set("Content-Type", "application/json")
-//	w.Write(result)
-//	w.WriteHeader(http.StatusOK)
-//}
-
-//// GetDeploymentSpecific is a callback function for endpoint /controllers/deployment/:name
-//func (httpHandler HTTPHandler) GetDeploymentSpecific(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-//	deploySpecific, err := httpHandler.k8sHandler.GetDeploymentSpecific(ps.ByName("namespace"), ps.ByName("name"))
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//
-//	result, err := json.Marshal(&deploySpecific)
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//
-//	w.Header().Set("Content-Type", "application/json")
-//	w.Write(result)
-//	w.WriteHeader(http.StatusOK)
-//}
-
-//func (httpHandler HTTPHandler) GetIngressOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-//	ingressOverview, err := httpHandler.k8sHandler.GetIngressOverview()
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//	result, err := json.Marshal(&ingressOverview)
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//
-//	w.Header().Set("Content-Type", "application/json")
-//	w.Write(result)
-//	w.WriteHeader(http.StatusOK)
-//}
-//
-//// controllers/ingress/:namespace/:name
-//func (httpHandler HTTPHandler) GetIngressSpecific(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-//	ingressSpecific, err := httpHandler.k8sHandler.GetIngressSpecific(ps.ByName("namespace"), ps.ByName("name"))
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//
-//	result, err := json.Marshal(&ingressSpecific)
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//
-//	w.Header().Set("Content-Type", "application/json")
-//	w.Write(result)
-//	w.WriteHeader(http.StatusOK)
-//}
-
 func (httpHandler HTTPHandler) GetPodDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	podDetail, err := httpHandler.k8sHandler.GetRecordOfPod(ps.ByName("name"))
@@ -182,20 +96,6 @@ func (httpHandler HTTPHandler) GetPodDetail(w http.ResponseWriter, r *http.Reque
 	w.Write(result)
 	w.WriteHeader(http.StatusOK)
 }
-
-//func (httpHandler HTTPHandler) GetVolumeDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-//
-//	podDetail, err := httpHandler.k8sHandler.GetVolumeDetail(ps.ByName("name"))
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//	result, err := json.Marshal(&podDetail)
-//
-//	w.Header().Set("Content-Type", "application/json")
-//	w.Write(result)
-//	w.WriteHeader(http.StatusOK)
-//}
 
 func (httpHandler HTTPHandler) GetLogsOfPod(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
@@ -468,27 +368,3 @@ func (httpHandler HTTPHandler) GetNumberOfEvents(w http.ResponseWriter, r *http.
 	w.Write(result)
 	w.WriteHeader(http.StatusOK)
 }
-
-//func (httpHandler HTTPHandler) GetPersistentVolume(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-//
-//	// Parse the query parameters
-//	page, err := strconv.Atoi(r.URL.Query().Get("page"))
-//	if err != nil {
-//		page = 1
-//	}
-//	perPage, err := strconv.Atoi(r.URL.Query().Get("per_page"))
-//	if err != nil {
-//		perPage = 10
-//	}
-//
-//	pv, err := httpHandler.k8sHandler.GetPersistentVolume(page, perPage)
-//	result, err := json.Marshal(&pv)
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//
-//	w.Header().Set("Content-Type", "application/json")
-//	w.Write(result)
-//	w.WriteHeader(http.StatusOK)
-//}

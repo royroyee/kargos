@@ -201,7 +201,7 @@ type Pod struct {
 
 	// Container struct
 	Containers     []Container `json:"containers"`
-	ContainerNames []string
+	ContainerNames []string    `json:"container_names"`
 }
 
 type PodUsage struct {
@@ -330,4 +330,8 @@ type ControllerInfo struct {
 	Mounts       []string `json:"mounts"`
 	Volumes      []string `json:"volumes"`
 	ControlledBy string   `json:"controlled_by"`
+}
+
+type Containers struct {
+	ContainerNames []string `json:"container_names"`
 }

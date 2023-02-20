@@ -28,7 +28,7 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 
 	// Overview
 	r.GET("/overview/status", httpHandler.GetOverviewStatus)
-	r.GET("/overview/nodes/usage", httpHandler.GetNodeUsage)
+	r.GET("/overview/nodes/usage", httpHandler.GetNodeUsageOverview)
 	r.GET("/overview/nodes/top", httpHandler.GetTopNode)
 	r.GET("/overview/pods/top", httpHandler.GetTopPod)
 
@@ -53,7 +53,8 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	r.GET("/pod/info/:name", httpHandler.GetPodInfo) // Information of Pod (detail page)
 	r.GET("/pod/usage/:name", httpHandler.GetPodUsage)
 
-	r.GET("/pod/logs/:namespace/:name", httpHandler.GetLogsOfPod) // TODO (ERROR)
+	r.GET("/pod/logs/:namespace/:name", httpHandler.GetLogsOfPod) // TODO pretty
+	r.GET("/pod/containers/:name", httpHandler.GetContainers)
 
 	//r.GET("/workload/controller/events/:namespace/:name", httpHandler.GetEventsByController) // Only 10
 

@@ -29,13 +29,13 @@ func (kh K8sHandler) DBSession() {
 		}
 	}()
 
-	// Delete old data(node) from DB every 12 hours
-	deleteTicker := time.NewTicker(12 * time.Hour) // test
+	// Delete old data from DB every 25 hours
+	deleteTicker := time.NewTicker(25 * time.Minute) // test
 	go func() {
 		for range deleteTicker.C {
 			kh.deleteNodeFromDB()
 			kh.deletePodFromDB()
-			kh.deleteEventFromDB()
+			//		kh.deleteEventFromDB()
 		}
 	}()
 
@@ -46,8 +46,8 @@ func (kh K8sHandler) DBSession() {
 // Create MongoDB Session
 func GetDBSession() *mgo.Session {
 	log.Println("Create DB Session .. ")
-	//session, err := mgo.Dial("mongodb://db-service:27017") // db-service is name of mongodb service(kubernetes)
-	session, err := mgo.Dial("mongodb://localhost:27017")
+	session, err := mgo.Dial("mongodb://db-service:27017") // db-service is name of mongodb service(kubernetes)
+	//session, err := mgo.Dial("mongodb://localhost:27017")
 
 	//// Check environment variables for mongodb.
 	//mongodbIP := os.Getenv("MONGODB_LISTEN_ADDR")
@@ -212,6 +212,81 @@ func (kh K8sHandler) GetNodeUsageAvg() (cm.NodeUsage, error) {
 
 		avgRamUsage := int(usage["avgRamUsage"].(float64))
 		result.RamUsage = append(result.RamUsage, avgRamUsage)
+	}
+
+	return result, nil
+}
+
+func (kh K8sHandler) GetNodeUsage(nodeName string) (cm.NodeUsage, error) {
+	var result cm.NodeUsage
+
+	collection := kh.session.DB("kargos").C("node")
+
+	pipeline := collection.Pipe([]bson.M{
+		{"$match": bson.M{"name": nodeName}},
+		{"$limit": 24},
+		{"$project": bson.M{
+			"_id":          nil,
+			"cpuusage":     1,
+			"ramusage":     1,
+			"networkusage": 1,
+			// TODO Disk Usage
+		}},
+	})
+
+	// Extract the result
+	var getUsage []bson.M
+	err := pipeline.All(&getUsage)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	for _, usage := range getUsage {
+		CpuUsage := int(usage["cpuusage"].(float64))
+		result.CpuUsage = append(result.CpuUsage, CpuUsage)
+
+		RamUsage := int(usage["ramusage"].(float64))
+		result.RamUsage = append(result.RamUsage, RamUsage)
+
+		NetworkUsage := int(usage["networkusage"].(float64))
+		result.NetworkUsage = append(result.NetworkUsage, NetworkUsage)
+	}
+
+	return result, nil
+}
+
+func (kh K8sHandler) GetPodUsageDetail(podName string) (cm.GetPodUsage, error) {
+	var result cm.GetPodUsage
+	collection := kh.session.DB("kargos").C("podusage")
+
+	pipeline := collection.Pipe([]bson.M{
+		{"$match": bson.M{"name": podName}},
+		{"$limit": 24},
+		{"$project": bson.M{
+			"_id":      nil,
+			"cpuusage": 1,
+			"ramusage": 1,
+			// "networkusage": 1,
+			// TODO Disk Usage
+		}},
+	})
+
+	// Extract the result
+	var getUsage []bson.M
+	err := pipeline.All(&getUsage)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	for _, usage := range getUsage {
+		CpuUsage := int(usage["cpuusage"].(int64))
+		result.CpuUsage = append(result.CpuUsage, CpuUsage)
+
+		RamUsage := int(usage["ramusage"].(int64))
+		result.RamUsage = append(result.RamUsage, RamUsage)
+
+		//NetworkUsage := int(usage["networkusage"].(float64))
+		//result.NetworkUsage = append(result.NetworkUsage, NetworkUsage)
 	}
 
 	return result, nil
@@ -395,10 +470,10 @@ func (kh K8sHandler) StorePodInfoInDB() {
 		return
 	}
 
-	//// Test (TODO DELETE)
+	// Test (TODO DELETE)
 	//pods, err := kh.GetPodUsage()
 	//kh.StorePodUsageInDB(pods)
-	//// TEST
+	// TEST
 }
 
 // Delete all Pod data older than 25 hours
@@ -439,36 +514,18 @@ func (kh K8sHandler) GetPodsOfController(controller string) (cm.PodsOfController
 	return result, nil
 }
 
-func (kh K8sHandler) GetRecordOfPod(podName string) (cm.Pod, error) {
-	var result = cm.Pod{}
-
-	filter := bson.M{"name": podName}
-	collection := kh.session.DB("kargos").C("pod")
-
-	err := collection.Find(filter).One(&result)
-	if err != nil {
-		log.Println(err)
-		return cm.Pod{}, err
-	}
-
-	return result, nil
-
-}
-
 func (kh K8sHandler) GetInfoOfPod(podName string) (cm.PodInfo, error) {
 	var result = cm.PodInfo{}
 
 	filter := bson.M{"name": podName}
-	collection := kh.session.DB("kargos").C("pod")
+	collection := kh.session.DB("kargos").C("podinfo")
 
 	err := collection.Find(filter).One(&result)
 	if err != nil {
 		log.Println(err)
 		return result, err
 	}
-
 	return result, nil
-
 }
 
 func (kh K8sHandler) GetPodUsageFromDB(podName string) (cm.PodUsage, error) {
@@ -487,15 +544,14 @@ func (kh K8sHandler) GetPodUsageFromDB(podName string) (cm.PodUsage, error) {
 
 }
 
-func (kh K8sHandler) GetEvents(eventType string, page int, perPage int) ([]cm.Event, error) {
+func (kh K8sHandler) GetEvents(eventLevel string, page int, perPage int) ([]cm.Event, error) {
 	var result []cm.Event
 	collection := kh.session.DB("kargos").C("event")
 
 	skip := (page - 1) * perPage
 	limit := perPage
-
-	filter := bson.M{"eventlevel": strings.Title(eventType)}
-	if eventType == "" {
+	filter := bson.M{"eventlevel": strings.Title(eventLevel)}
+	if eventLevel == "" {
 		filter = bson.M{}
 	}
 	err := collection.Find(filter).Skip(skip).Limit(limit).Sort("-created").All(&result)
@@ -533,10 +589,7 @@ func (kh K8sHandler) deleteEventFromDB() {
 }
 
 func (kh K8sHandler) storeControllerInDB() {
-	controllerList, err := kh.GetController()
-	if err != nil {
-		return
-	}
+	controllerList := kh.GetController()
 
 	kh.deleteControllerFromDB(controllerList)
 
@@ -548,7 +601,6 @@ func (kh K8sHandler) storeControllerInDB() {
 
 	bulk := collection.Bulk()
 	for _, controller := range controllerList {
-		controller.Type = strings.ToLower(controller.Type)
 		bulk.Upsert(bson.M{"name": controller.Name, "namespace": controller.Namespace}, controller)
 	}
 
@@ -597,8 +649,8 @@ func (kh K8sHandler) GetControllers(page int, perPage int) ([]cm.Controller, err
 	return result, nil
 }
 
-func (kh K8sHandler) GetControllersByFilter(namespace string, controller string, page int, perPage int) ([]cm.Controller, error) {
-	var result []cm.Controller
+func (kh K8sHandler) GetControllersByFilter(namespace string, controller string, page int, perPage int) ([]cm.ControllerOverview, error) {
+	var result []cm.ControllerOverview
 	collection := kh.session.DB("kargos").C("controller")
 
 	skip := (page - 1) * perPage
@@ -643,15 +695,53 @@ func (kh K8sHandler) GetControllersByType(controller string, page int, perPage i
 	return result, nil
 }
 
-func (kh K8sHandler) NumberOfEvents() (cm.Count, error) {
+func (kh K8sHandler) NumberOfEvents(eventLevel string) (cm.Count, error) {
 	var result cm.Count
+	filter := bson.M{}
 	collection := kh.session.DB("kargos").C("event")
 
-	count, err := collection.Count()
+	if eventLevel != "" {
+		filter = bson.M{"eventlevel": strings.Title(eventLevel)}
+	}
+	count, err := collection.Find(filter).Count()
 	if err != nil {
 		log.Println(err)
 		return result, err
 	}
 	result.Count = count
+	return result, nil
+}
+
+func (kh K8sHandler) NumberOfControllers(namespace string, controllerType string) (cm.Count, error) {
+	var result cm.Count
+	filter := bson.M{}
+	collection := kh.session.DB("kargos").C("controller")
+
+	if namespace != "" && controllerType == "" {
+		filter = bson.M{"namespace": namespace}
+	} else if namespace != "" && controllerType != "" {
+		filter = bson.M{"namespace": namespace, "type": controllerType}
+	}
+	count, err := collection.Find(filter).Count()
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	result.Count = count
+	return result, nil
+}
+
+func (kh K8sHandler) GetEventsByController(controllerName string) ([]cm.Event, error) {
+	var result []cm.Event
+	collection := kh.session.DB("kargos").C("event")
+
+	limit := 10
+	filter := bson.M{"name": controllerName}
+
+	err := collection.Find(filter).Limit(limit).Sort("-created").All(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
 	return result, nil
 }

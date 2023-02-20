@@ -165,13 +165,20 @@ type PodStatus struct {
 	Running int      `json:"running"`
 }
 
-// Controllers
+// Controller
 type Controller struct {
-	Name      string   `json:"name"`
-	Type      string   `json:"type"`
 	Namespace string   `json:"namespace"`
+	Type      string   `json:"type"`
+	Name      string   `json:"name"`
 	Pods      []string `json:"pods"`
 	Volumes   []string `json:"volumes"`
+}
+
+type ControllerOverview struct {
+	Namespace string   `json:"namespace"`
+	Type      string   `json:"type"`
+	Name      string   `json:"name"`
+	Pods      []string `json:"pods"`
 }
 
 // Pod
@@ -208,14 +215,20 @@ type PodUsage struct {
 	Containers     []Container `json:"containers"`
 	ContainerNames []string
 }
+type GetPodUsage struct {
+	CpuUsage     []int `json:"cpu_usage"`
+	RamUsage     []int `json:"ram_usage"`
+	NetworkUsage []int `json:"network_usage"`
+	DiskUsage    []int `json:"disk_usage"`
+}
 
 type PodInfo struct {
 	Name       string   `json:"name"`
 	Namespace  string   `json:"namespace"`
 	Image      string   `json:"image"`
-	Restarts   int32    `json:"restarts"`
-	PodIP      string   `json:"pod_ip"`
 	Node       string   `json:"node"`
+	PodIP      string   `json:"pod_ip"`
+	Restarts   int32    `json:"restarts"`
 	Volumes    []string `json:"volumes"`
 	Controller string   `json:"controller"`
 	Status     string   `json:"status"`
@@ -246,8 +259,10 @@ type NodeOverview struct {
 	Status        string  `json:"status"`
 }
 type NodeUsage struct {
-	CpuUsage []int `json:"cpu_usage"`
-	RamUsage []int `json:"ram_usage"`
+	CpuUsage     []int `json:"cpu_usage"`
+	RamUsage     []int `json:"ram_usage"`
+	NetworkUsage []int `json:"network_usage"`
+	DiskUsage    []int `json:"disk_usage"`
 }
 
 type NodeCpuUsage struct {
@@ -277,17 +292,20 @@ type TopPod struct {
 }
 
 type NodeInfo struct {
-	HostName                string  `json:"host_name"`
-	IP                      string  `json:"ip"`
-	KubeletVersion          string  `json:"kubelet_version"`
-	ContainerRuntimeVersion string  `json:"container_runtime_version"`
-	NumContainers           int     `json:"num_containers"`
-	CpuCores                int64   `json:"cpu_cores"`
-	Ram                     float64 `json:"ram"`
+	OS                      string `json:"os"`
+	HostName                string `json:"host_name"`
+	IP                      string `json:"ip"`
+	KubeletVersion          string `json:"kubelet_version"`
+	ContainerRuntimeVersion string `json:"container_runtime_version"`
+	NumContainers           int    `json:"num_containers"`
+	CpuCores                int64  `json:"cpu_cores"`
+	RamCapacity             int64  `json:"ram_capacity"`
+	Status                  bool   `json:"status"`
 }
 
-type Volume struct {
+type VolumeInfo struct {
 	Name      string `json:"name"`
+	Type      string `json:"type"`
 	ClaimName string `json:"claim_name"`
 	ReadOnly  string `json:"read_only"`
 }
@@ -303,4 +321,13 @@ type PersistentVolume struct {
 
 type Count struct {
 	Count int `json:"count"`
+}
+
+type ControllerInfo struct {
+	Labels       []string `json:"labels"`
+	Limits       []string `json:"limits"`
+	Environment  []string `json:"environment"`
+	Mounts       []string `json:"mounts"`
+	Volumes      []string `json:"volumes"`
+	ControlledBy string   `json:"controlled_by"`
 }

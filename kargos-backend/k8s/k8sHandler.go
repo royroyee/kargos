@@ -1,6 +1,8 @@
 package k8s
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	cm "github.com/boanlab/kargos/common"
@@ -9,9 +11,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"log"
-	"math"
+	"strings"
 	"time"
 )
 
@@ -29,7 +32,9 @@ func NewK8sHandler() *K8sHandler {
 	kh := &K8sHandler{
 		K8sClient:       cm.InitK8sClient(),
 		MetricK8sClient: cm.InitMetricK8sClient(),
-		session:         GetDBSession(),
+		//K8sClient:       cm.ClientSetOutofCluster(),
+		//MetricK8sClient: cm.MetricClientSetOutofCluster(),
+		session: GetDBSession(),
 	}
 
 	////// Out of Cluster
@@ -112,6 +117,7 @@ func (kh K8sHandler) GetOverviewStatus() (cm.Overview, error) {
 
 	return result, nil
 }
+
 func (kh K8sHandler) PodOverview() ([]cm.Pod, error) {
 
 	var result []cm.Pod
@@ -198,9 +204,10 @@ func (kh K8sHandler) GetPodUsage() ([]cm.PodUsage, error) {
 
 		cpuUsage, ramUsage, err = kh.calculatePodUsage(podName, namespace)
 		result = append(result, cm.PodUsage{
-			Name:     podName,
-			CpuUsage: cpuUsage,
-			RamUsage: ramUsage,
+			Name:           podName,
+			CpuUsage:       cpuUsage,
+			RamUsage:       ramUsage,
+			ContainerNames: containerNames,
 			// TODO Network , Disk Usage
 			Timestamp: time.Now().Format("2006-01-02 15:04"),
 		})
@@ -208,108 +215,266 @@ func (kh K8sHandler) GetPodUsage() ([]cm.PodUsage, error) {
 	return result, nil
 }
 
-func (kh K8sHandler) GetController() ([]cm.Controller, error) {
+func (kh K8sHandler) GetController() []cm.Controller {
 
 	var result []cm.Controller
 	var volumes []v1.Volume
 
-	deployList, err := kh.GetDeploymentList()
-	if err != nil {
-		return []cm.Controller{}, err
+	deployList, _ := kh.GetDeploymentList()
+
+	if deployList != nil {
+
+		for _, deploy := range deployList.Items {
+
+			podList, err := kh.K8sClient.CoreV1().Pods(deploy.Namespace).List(context.TODO(), metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(deploy.Spec.Selector),
+			})
+			if err != nil {
+				log.Println(err)
+			}
+			var pods []string
+			for _, pod := range podList.Items {
+				pods = append(pods, pod.GetName())
+			}
+			var volumeList []string
+			volumes = deploy.Spec.Template.Spec.Volumes
+			for _, volume := range volumes {
+				volumeList = append(volumeList, volume.Name)
+			}
+
+			result = append(result, cm.Controller{
+				Name:      deploy.GetName(),
+				Type:      "deployment",
+				Namespace: deploy.GetNamespace(),
+				Pods:      pods,
+				Volumes:   volumeList,
+			})
+		}
 	}
 
-	for _, deploy := range deployList.Items {
+	statefulSetList, _ := kh.GetStatefulSetList()
 
-		podList, err := kh.K8sClient.CoreV1().Pods(deploy.Namespace).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: metav1.FormatLabelSelector(deploy.Spec.Selector),
-		})
-		if err != nil {
-			log.Println(err)
-		}
-		var pods []string
-		for _, pod := range podList.Items {
-			pods = append(pods, pod.GetName())
-		}
-		var volumeList []string
-		volumes = deploy.Spec.Template.Spec.Volumes
-		for _, volume := range volumes {
-			volumeList = append(volumeList, volume.Name)
-		}
+	if statefulSetList != nil {
 
-		result = append(result, cm.Controller{
-			Name:      deploy.GetName(),
-			Type:      "Deployment",
-			Namespace: deploy.GetNamespace(),
-			Pods:      pods,
-			Volumes:   volumeList,
-		})
+		for _, statefulSet := range statefulSetList.Items {
+
+			podList, err := kh.K8sClient.CoreV1().Pods(statefulSet.Namespace).List(context.TODO(), metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(statefulSet.Spec.Selector),
+			})
+			if err != nil {
+				log.Println(err)
+			}
+			var pods []string
+			for _, pod := range podList.Items {
+				pods = append(pods, pod.Name)
+			}
+
+			var volumeOfState []string
+			volumes = statefulSet.Spec.Template.Spec.Volumes
+			for _, volume := range volumes {
+				volumeOfState = append(volumeOfState, volume.Name)
+			}
+
+			result = append(result, cm.Controller{
+				Name:      statefulSet.GetName(),
+				Type:      "statefulset",
+				Namespace: statefulSet.GetNamespace(),
+				Pods:      pods,
+				Volumes:   volumeOfState,
+			})
+		}
 	}
 
-	statefulSetList, err := kh.GetStatefulSetList()
-	if err != nil {
-		return []cm.Controller{}, err
+	daemonSetList, _ := kh.GetDaemonSetList()
+
+	if daemonSetList != nil {
+
+		for _, daemonSet := range daemonSetList.Items {
+
+			podList, err := kh.K8sClient.CoreV1().Pods(daemonSet.Namespace).List(context.TODO(), metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(daemonSet.Spec.Selector),
+			})
+			if err != nil {
+				log.Println(err)
+			}
+			var pods []string
+			for _, pod := range podList.Items {
+				pods = append(pods, pod.Name)
+			}
+			var volumeOfDaemon []string
+			volumes = daemonSet.Spec.Template.Spec.Volumes
+			for _, volume := range volumes {
+				volumeOfDaemon = append(volumeOfDaemon, volume.Name)
+			}
+
+			result = append(result, cm.Controller{
+				Name:      daemonSet.GetName(),
+				Type:      "daemonset",
+				Namespace: daemonSet.GetNamespace(),
+				Pods:      pods,
+				Volumes:   volumeOfDaemon,
+			})
+		}
 	}
 
-	for _, statefulSet := range statefulSetList.Items {
+	JobList, _ := kh.GetJobList()
 
-		podList, err := kh.K8sClient.CoreV1().Pods(statefulSet.Namespace).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: metav1.FormatLabelSelector(statefulSet.Spec.Selector),
-		})
-		if err != nil {
-			log.Println(err)
-		}
-		var pods []string
-		for _, pod := range podList.Items {
-			pods = append(pods, pod.Name)
-		}
+	if JobList != nil {
 
-		var volumeOfState []string
-		volumes = statefulSet.Spec.Template.Spec.Volumes
-		for _, volume := range volumes {
-			volumeOfState = append(volumeOfState, volume.Name)
-		}
+		for _, job := range JobList.Items {
 
-		result = append(result, cm.Controller{
-			Name:      statefulSet.GetName(),
-			Type:      "StatefulSet",
-			Namespace: statefulSet.GetNamespace(),
-			Volumes:   volumeOfState,
-		})
+			podList, err := kh.K8sClient.CoreV1().Pods(job.Namespace).List(context.TODO(), metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(job.Spec.Selector),
+			})
+			if err != nil {
+				log.Println(err)
+			}
+			var pods []string
+			for _, pod := range podList.Items {
+				pods = append(pods, pod.Name)
+			}
+			var volumeOfJob []string
+			volumes = job.Spec.Template.Spec.Volumes
+			for _, volume := range volumes {
+				volumeOfJob = append(volumeOfJob, volume.Name)
+			}
+
+			result = append(result, cm.Controller{
+				Name:      job.GetName(),
+				Type:      "job",
+				Namespace: job.GetNamespace(),
+				Pods:      pods,
+				Volumes:   volumeOfJob,
+			})
+		}
 	}
 
-	daemonSetList, err := kh.GetDaemonSetList()
-	if err != nil {
-		return []cm.Controller{}, err
+	CronJobList, _ := kh.GetCronJobList()
+
+	if CronJobList != nil {
+
+		for _, cronjob := range CronJobList.Items {
+
+			podList, err := kh.K8sClient.CoreV1().Pods(cronjob.Namespace).List(context.TODO(), metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(cronjob.Spec.JobTemplate.Spec.Selector),
+			})
+			if err != nil {
+				log.Println(err)
+			}
+			var pods []string
+			for _, pod := range podList.Items {
+				pods = append(pods, pod.Name)
+			}
+			var volumeOfCronJob []string
+			volumes = cronjob.Spec.JobTemplate.Spec.Template.Spec.Volumes
+			for _, volume := range volumes {
+				volumeOfCronJob = append(volumeOfCronJob, volume.Name)
+			}
+
+			result = append(result, cm.Controller{
+				Name:      cronjob.GetName(),
+				Type:      "cronjob",
+				Namespace: cronjob.GetNamespace(),
+				Pods:      pods,
+				Volumes:   volumeOfCronJob,
+			})
+		}
 	}
 
-	for _, daemonSet := range daemonSetList.Items {
+	ReplicaSetList, _ := kh.GetReplicaSetList()
 
-		podList, err := kh.K8sClient.CoreV1().Pods(daemonSet.Namespace).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: metav1.FormatLabelSelector(daemonSet.Spec.Selector),
-		})
-		if err != nil {
-			log.Println(err)
-		}
-		var pods []string
-		for _, pod := range podList.Items {
-			pods = append(pods, pod.Name)
-		}
-		var volumeOfDaemon []string
-		volumes = daemonSet.Spec.Template.Spec.Volumes
-		for _, volume := range volumes {
-			volumeOfDaemon = append(volumeOfDaemon, volume.Name)
-		}
+	if ReplicaSetList != nil {
+		for _, replicaSet := range ReplicaSetList.Items {
 
-		result = append(result, cm.Controller{
-			Name:      daemonSet.GetName(),
-			Type:      "DaemonSet",
-			Namespace: daemonSet.GetNamespace(),
-			Volumes:   volumeOfDaemon,
-		})
+			podList, err := kh.K8sClient.CoreV1().Pods(replicaSet.Namespace).List(context.TODO(), metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(replicaSet.Spec.Selector),
+			})
+			if err != nil {
+				log.Println(err)
+			}
+			var pods []string
+			for _, pod := range podList.Items {
+				pods = append(pods, pod.Name)
+			}
+			var volumeOfReplicaSet []string
+			volumes = replicaSet.Spec.Template.Spec.Volumes
+			for _, volume := range volumes {
+				volumeOfReplicaSet = append(volumeOfReplicaSet, volume.Name)
+			}
+
+			result = append(result, cm.Controller{
+				Name:      replicaSet.GetName(),
+				Type:      "replicaset",
+				Namespace: replicaSet.GetNamespace(),
+				Pods:      pods,
+				Volumes:   volumeOfReplicaSet,
+			})
+		}
 	}
 
-	return result, nil
+	return result
 }
+
+//
+//func (kh K8sHandler) GetController() ([]cm.Controller, error) {
+//	var result []cm.Controller
+//	var volumes []v1.Volume
+//
+//	// define a list of controller types
+//	controllerTypes := []string{"Deployment", "StatefulSet", "DaemonSet"}
+//
+//	// create a map of controller type to a function that retrieves the list of controllers for that type
+//	controllerFuncs := map[string]func() ([]metav1.Object, error){
+//		"Deployment":  kh.GetDeploymentList(),
+//		"StatefulSet": kh.GetStatefulSetList(),
+//		"DaemonSet":   kh.GetDaemonSetList(),
+//	}
+//
+//	// iterate over all controller types
+//	for _, controllerType := range controllerTypes {
+//		// retrieve the list of controllers for the current type
+//		controllers, err := controllerFuncs[controllerType]()
+//		if err != nil {
+//			return []cm.Controller{}, err
+//		}
+//
+//		// iterate over all controllers for the current type
+//		for _, controller := range controllers {
+//			// retrieve the pods for the current controller
+//			podList, err := kh.K8sClient.CoreV1().Pods(controller.GetNamespace()).List(context.TODO(), metav1.ListOptions{
+//				LabelSelector: metav1.FormatLabelSelector(controller.(metav1.Object).GetLabels()),
+//			})
+//			if err != nil {
+//				log.Println(err)
+//			}
+//
+//			// create a list of pod names
+//			var pods []string
+//			for _, pod := range podList.Items {
+//				pods = append(pods, pod.GetName())
+//			}
+//
+//			// create a list of volume names
+//			var volumeList []string
+//			volumes = controller.(v1beta1.ControllerRevisionInterface).GetTemplate().Spec.Volumes
+//			for _, volume := range volumes {
+//				volumeList = append(volumeList, volume.Name)
+//			}
+//
+//			// create a controller object and append it to the result list
+//			controllerObj := cm.Controller{
+//				Name:      controller.GetName(),
+//				Type:      controllerType,
+//				Namespace: controller.GetNamespace(),
+//				Pods:      pods,
+//				Volumes:   volumeList,
+//			}
+//			result = append(result, controllerObj)
+//		}
+//	}
+//
+//	return result, nil
+//}
 
 func (kh K8sHandler) GetLogsOfPod(namespace string, podName string) ([]string, error) {
 	var result []string
@@ -332,78 +497,98 @@ func (kh K8sHandler) GetLogsOfPod(namespace string, podName string) ([]string, e
 	}
 	defer logs.Close()
 
-	// read the logs and append them to the result slice
-	buf := make([]byte, 1024)
-	for {
-		numBytes, err := logs.Read(buf)
+	// read the logs and format them with timestamps and pod name
+	scanner := bufio.NewScanner(logs)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// extract the "$date" field from the JSON object in the log line
+		dateStart := strings.Index(line, "{\"$date\":\"")
+		dateEnd := strings.Index(line[dateStart+1:], "\"}")
+		dateStr := line[dateStart+9 : dateStart+1+dateEnd]
+
+		// parse the timestamp in the log line
+		ts, err := time.Parse(time.Now().Format("2006-01-02 15:04"), dateStr)
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
 			return result, err
 		}
-		line := string(buf[0:numBytes])
-		result = append(result, line)
+
+		// format the log line with the timestamp and pod name
+		formatted := fmt.Sprintf("%s [%s] %s", ts.Format("2006-01-02 15:04"), podName, line[dateStart+1+dateEnd+3:])
+		result = append(result, formatted)
 	}
+
+	if err := scanner.Err(); err != nil {
+		return result, err
+	}
+
 	// return the result slice
 	return result, nil
 }
 
-//func (kh K8sHandler) GetLogsOfNode(nodeName string) ([]string, error) {
-//	var result []string
-//
-//	// create a time range for the logs
-//	now := time.Now()
-//	before := now.Add(-24 * time.Hour) // get logs from the last 24 hours
-//
-//	// create the REST client for the nodes API
-//	restConfig, err := kh.GetRestConfig()
-//	if err != nil {
-//		return result, err
-//	}
-//	restClient, err := rest.RESTClientFor(restConfig)
-//	if err != nil {
-//		return result, err
-//	}
-//
-//	// create the URL for the node logs
-//	nodeLogURL := restClient.Post().
-//		Resource("nodes").
-//		Name(nodeName).
-//		SubResource("log").
-//		VersionedParams(&v1.PodLogOptions{
-//			Timestamps: true,
-//			SinceTime:  &metav1.Time{Time: before},
-//		}, scheme.ParameterCodec).URL()
-//
-//	// create the request for the node logs
-//	req := restClient.Get().
-//		AbsPath(nodeLogURL.String())
-//
-//	// start the request
-//	readCloser, err := req.Stream(context.Background())
-//	if err != nil {
-//		return result, err
-//	}
-//	defer readCloser.Close()
-//
-//	// read the logs and append them to the result slice
-//	buf := make([]byte, 1024)
-//	for {
-//		numBytes, err := readCloser.Read(buf)
-//		if err != nil {
-//			if err == io.EOF {
-//				break
-//			}
-//			return result, err
-//		}
-//		line := string(buf[0:numBytes])
-//		result = append(result, line)
-//	}
-//
-//	// return the result slice
-//	return result, nil
-//}
+func (kh K8sHandler) GetLogsOfNode(nodeName string) ([]string, error) {
+	// create a time range for the logs
+	now := time.Now()
+	before := now.Add(-24 * time.Hour) // get logs from the last 24 hours
+
+	// create the REST client for the nodes API
+	restConfig := kh.K8sClient.RESTClient()
+
+	// create the URL for the node logs
+	nodeLogURL := restConfig.Post().
+		Resource("nodes").
+		Name(nodeName).
+		SubResource("log").
+		VersionedParams(&v1.PodLogOptions{
+			Timestamps: true,
+			SinceTime:  &metav1.Time{Time: before},
+		}, scheme.ParameterCodec).URL()
+
+	// create the request for the node logs
+	req := restConfig.Get().
+		AbsPath(nodeLogURL.String())
+
+	// start the request
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	readCloser, err := req.Stream(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer readCloser.Close()
+
+	// read the logs and store them in a buffer
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, readCloser)
+	if err != nil {
+		return nil, err
+	}
+
+	// split the logs into lines
+	scanner := bufio.NewScanner(&buf)
+	var result []string
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// parse the timestamp in the log line
+		tsEnd := strings.Index(line, " ")
+		tsStr := line[:tsEnd]
+
+		// format the log line with the timestamp and node name
+		ts, err := time.Parse("2006-01-02 15:04", tsStr)
+		if err != nil {
+			return result, err
+		}
+		formatted := fmt.Sprintf("%s [%s] %s", ts.Format(time.RFC3339), nodeName, line[tsEnd+1:])
+		result = append(result, formatted)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	// return the result slice
+	return result, nil
+}
 
 func (kh K8sHandler) GetNodeInfo(nodeName string) (cm.NodeInfo, error) {
 
@@ -416,9 +601,11 @@ func (kh K8sHandler) GetNodeInfo(nodeName string) (cm.NodeInfo, error) {
 		return result, err
 	}
 
+	result.OS = node.Status.NodeInfo.OSImage
 	// get the hostname and IP address of the node
 	result.HostName = node.ObjectMeta.Name
 	result.IP = node.Status.Addresses[0].Address
+	result.Status = isNodeReady(node)
 
 	// get the Kubernetes version and containerd version of the node
 	result.KubeletVersion = node.Status.NodeInfo.KubeletVersion
@@ -438,52 +625,252 @@ func (kh K8sHandler) GetNodeInfo(nodeName string) (cm.NodeInfo, error) {
 	// get the CPU and RAM capacity of the node
 	capacity := node.Status.Capacity
 	result.CpuCores = capacity.Cpu().Value()
-	ramBytes := capacity.Memory().Value()
-	result.Ram = math.Round(float64(ramBytes) / float64(1024*1024*1024))
+
+	result.RamCapacity = node.Status.Capacity.Memory().Value() / 1024 / 1024 / 1024
 
 	return result, nil
 
 }
 
-func (kh K8sHandler) GetEventsByController(namespace string, controllerName string) ([]string, error) {
-
-	var result []string
-
-	// Set up a field selector to only retrieve events for the deployment
-	fieldSelector := fmt.Sprintf("involvedObject.name=%s,involvedObject.namespace=%s", controllerName, namespace)
-
-	// Retrieve the events for the deployment
-	eventList, err := kh.K8sClient.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{
-		FieldSelector: fieldSelector,
-		Limit:         10,
-	})
-	if err != nil {
-		log.Println(err)
-		return result, err
-	}
-
-	// Create a string array to hold the event messages
-	eventMessages := make([]string, len(eventList.Items))
-
-	// Add each event message to the string array
-	for i, event := range eventList.Items {
-		eventMessages[i] = fmt.Sprintf("%s: %s", event.LastTimestamp.Format("2023-01-02 15:04:05"), event.Message)
-	}
-
-	// Print out the string array of event messagesç
-	result = eventMessages
-	return result, nil
-
-}
+//func (kh K8sHandler) GetEventsByController(namespace string, controllerName string) ([]string, error) {
+//
+//	var result []string
+//
+//	// Set up a field selector to only retrieve events for the deployment
+//	fieldSelector := fmt.Sprintf("involvedObject.name=%s,involvedObject.namespace=%s", controllerName, namespace)
+//
+//	// Retrieve the events for the deployment
+//	eventList, err := kh.K8sClient.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{
+//		FieldSelector: fieldSelector,
+//		Limit:         10,
+//	})
+//	if err != nil {
+//		log.Println(err)
+//		return result, err
+//	}
+//
+//	// Create a string array to hold the event messages
+//	eventMessages := make([]string, len(eventList.Items))
+//
+//	// Add each event message to the string array
+//	for i, event := range eventList.Items {
+//		eventMessages[i] = fmt.Sprintf("%s: %s", event.LastTimestamp.Format("2023-01-02 15:04:05"), event.Message)
+//	}
+//
+//	// Print out the string array of event messagesç
+//	result = eventMessages
+//	return result, nil
+//
+//}
 
 func (kh K8sHandler) NumberOfNodes() (cm.Count, error) {
 	var result cm.Count
 
-	nodes, err := kh.K8sClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	nodes, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return result, err
 	}
 
 	result.Count = len(nodes.Items)
 	return result, err
+}
+
+func (kh K8sHandler) GetControllerInfo(controllerType string, namespace string, controllerName string) (cm.ControllerInfo, error) {
+	var result cm.ControllerInfo
+	var limits, volumes, mounts, envs, labels []string
+	var controlleredByName string
+
+	if controllerType == "deployment" {
+		controller, err := kh.K8sClient.AppsV1().Deployments(namespace).Get(context.TODO(), controllerName, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+
+		container := controller.Spec.Template.Spec.Containers
+
+		if len(container) > 0 {
+			for _, container := range controller.Spec.Template.Spec.Containers {
+				for resourceName, resourceLimit := range container.Resources.Limits {
+					limits = append(limits, fmt.Sprintf("%s=%s", resourceName, resourceLimit.String()))
+				}
+			}
+			for _, volume := range controller.Spec.Template.Spec.Volumes {
+				volumes = append(volumes, volume.Name)
+			}
+			for _, volumeMount := range controller.Spec.Template.Spec.Containers[0].VolumeMounts {
+				mounts = append(mounts, volumeMount.Name)
+			}
+			for _, env := range controller.Spec.Template.Spec.Containers[0].Env {
+				envs = append(envs, env.Name)
+			}
+
+			for key, value := range controller.Labels {
+				labels = append(labels, fmt.Sprintf("%s=%s", key, value))
+			}
+			if len(controller.OwnerReferences) > 0 {
+				controlleredBy := controller.OwnerReferences[0]
+				controlleredByName = controlleredBy.Name
+			}
+
+		}
+
+	} else if controllerType == "daemonset" {
+		controller, err := kh.K8sClient.AppsV1().DaemonSets(namespace).Get(context.TODO(), controllerName, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+
+		container := controller.Spec.Template.Spec.Containers
+
+		if len(container) > 0 {
+			for _, container := range controller.Spec.Template.Spec.Containers {
+				for resourceName, resourceLimit := range container.Resources.Limits {
+					limits = append(limits, fmt.Sprintf("%s=%s", resourceName, resourceLimit.String()))
+				}
+			}
+			for _, volume := range controller.Spec.Template.Spec.Volumes {
+				volumes = append(volumes, volume.Name)
+			}
+			for _, volumeMount := range controller.Spec.Template.Spec.Containers[0].VolumeMounts {
+				mounts = append(mounts, volumeMount.Name)
+			}
+			for _, env := range controller.Spec.Template.Spec.Containers[0].Env {
+				envs = append(envs, env.Name)
+			}
+			if len(controller.OwnerReferences) > 0 {
+				controlleredBy := controller.OwnerReferences[0]
+				controlleredByName = controlleredBy.Name
+			}
+
+		}
+
+	} else if controllerType == "staefulset" {
+		controller, err := kh.K8sClient.AppsV1().StatefulSets(namespace).Get(context.TODO(), controllerName, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+		container := controller.Spec.Template.Spec.Containers
+
+		if len(container) > 0 {
+			for _, container := range controller.Spec.Template.Spec.Containers {
+				for resourceName, resourceLimit := range container.Resources.Limits {
+					limits = append(limits, fmt.Sprintf("%s=%s", resourceName, resourceLimit.String()))
+				}
+			}
+			for _, volume := range controller.Spec.Template.Spec.Volumes {
+				volumes = append(volumes, volume.Name)
+			}
+			for _, volumeMount := range controller.Spec.Template.Spec.Containers[0].VolumeMounts {
+				mounts = append(mounts, volumeMount.Name)
+			}
+			for _, env := range controller.Spec.Template.Spec.Containers[0].Env {
+				envs = append(envs, env.Name)
+			}
+			if len(controller.OwnerReferences) > 0 {
+				controlleredBy := controller.OwnerReferences[0]
+				controlleredByName = controlleredBy.Name
+			}
+
+		}
+
+	} else if controllerType == "job" {
+		controller, err := kh.K8sClient.BatchV1().Jobs(namespace).Get(context.TODO(), controllerName, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+		container := controller.Spec.Template.Spec.Containers
+
+		if len(container) > 0 {
+			for _, container := range controller.Spec.Template.Spec.Containers {
+				for resourceName, resourceLimit := range container.Resources.Limits {
+					limits = append(limits, fmt.Sprintf("%s=%s", resourceName, resourceLimit.String()))
+				}
+			}
+			for _, volume := range controller.Spec.Template.Spec.Volumes {
+				volumes = append(volumes, volume.Name)
+			}
+			for _, volumeMount := range controller.Spec.Template.Spec.Containers[0].VolumeMounts {
+				mounts = append(mounts, volumeMount.Name)
+			}
+			for _, env := range controller.Spec.Template.Spec.Containers[0].Env {
+				envs = append(envs, env.Name)
+			}
+			if len(controller.OwnerReferences) > 0 {
+				controlleredBy := controller.OwnerReferences[0]
+				controlleredByName = controlleredBy.Name
+			}
+
+		}
+
+	} else if controllerType == "cronjob" {
+		controller, err := kh.K8sClient.BatchV1().CronJobs(namespace).Get(context.TODO(), controllerName, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+		container := controller.Spec.JobTemplate.Spec.Template.Spec.Containers
+
+		if len(container) > 0 {
+			for _, container := range controller.Spec.JobTemplate.Spec.Template.Spec.Containers {
+				for resourceName, resourceLimit := range container.Resources.Limits {
+					limits = append(limits, fmt.Sprintf("%s=%s", resourceName, resourceLimit.String()))
+				}
+			}
+			for _, volume := range controller.Spec.JobTemplate.Spec.Template.Spec.Volumes {
+				volumes = append(volumes, volume.Name)
+			}
+			for _, volumeMount := range controller.Spec.JobTemplate.Spec.Template.Spec.Containers[0].VolumeMounts {
+				mounts = append(mounts, volumeMount.Name)
+			}
+			for _, env := range controller.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env {
+				envs = append(envs, env.Name)
+			}
+			if len(controller.OwnerReferences) > 0 {
+				controlleredBy := controller.OwnerReferences[0]
+				controlleredByName = controlleredBy.Name
+			}
+
+		}
+
+	} else if controllerType == "replicaset" {
+		controller, err := kh.K8sClient.AppsV1().ReplicaSets(namespace).Get(context.TODO(), controllerName, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+		container := controller.Spec.Template.Spec.Containers
+
+		if len(container) > 0 {
+			for _, container := range controller.Spec.Template.Spec.Containers {
+				for resourceName, resourceLimit := range container.Resources.Limits {
+					limits = append(limits, fmt.Sprintf("%s=%s", resourceName, resourceLimit.String()))
+				}
+			}
+			for _, volume := range controller.Spec.Template.Spec.Volumes {
+				volumes = append(volumes, volume.Name)
+			}
+			for _, volumeMount := range controller.Spec.Template.Spec.Containers[0].VolumeMounts {
+				mounts = append(mounts, volumeMount.Name)
+			}
+			for _, env := range controller.Spec.Template.Spec.Containers[0].Env {
+				envs = append(envs, env.Name)
+			}
+			if len(controller.OwnerReferences) > 0 {
+				controlleredBy := controller.OwnerReferences[0]
+				controlleredByName = controlleredBy.Name
+			}
+
+		}
+
+	} else {
+		err := fmt.Errorf("Invalid Controller Type %v", controllerType)
+		return result, err
+	}
+
+	result.Limits = limits
+	result.Environment = envs
+	result.Mounts = mounts
+	result.Volumes = volumes
+	result.Labels = labels
+	result.ControlledBy = controlleredByName
+
+	return result, nil
 }

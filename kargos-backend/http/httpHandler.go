@@ -38,26 +38,24 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 
 	// Nodes
 	r.GET("/nodes", httpHandler.GetNodeOverview)
+	r.GET("/node/usage/:name", httpHandler.GetNodeUsage)
 	r.GET("/node/info/:name", httpHandler.GetNodeInfo)
 	r.GET("/nodes/count", httpHandler.GetNumberOfNodes)
-	//r.GET("/node/logs/:name", httpHandler.GetLogsOfNode) (TODO REST client 필요)
+	r.GET("/node/logs/:name", httpHandler.GetLogsOfNode) // TODO (ERROR)
 
-	// Monitor
+	// Workload
 	r.GET("/workload/namespaces", httpHandler.GetNamespace)
-	r.GET("/workload/controllers", httpHandler.GetControllersByFilter) // Filtering by Namespace
-	// Example "/monitor/controllers" : all Controllers   "/monitor/controllers?namespace=kargos : Controllers of Kargos
-	// localhost:9000/monitor/controllers?namespace=kargos&page=1&per_page=10 (&pagination)
-	// localhost:9000/monitor/controllers?namespace=kargos&controller=daemonset
+	r.GET("/workload", httpHandler.GetControllersByFilter) // Filtering by Namespace, Type
 
-	//r.GET("/monitor/namespaces/controller", httpHandler.GetControllers)
+	r.GET("/workload/count", httpHandler.GetNumberOfControllers)
+	r.GET("/workload/info/:namespace/:name", httpHandler.GetControllerInfo)
 
-	r.GET("/workload/pods/:controller", httpHandler.GetPodList) // pod List of controller
-	r.GET("/pod/detail/:name", httpHandler.GetPodDetail)        // Information of Pod (detail page)
-	//	r.GET("pod/usage/:name", httpHandler.GetPodUsage)          // Usage(cpu,ram) of Pod (detail page)
+	r.GET("/pod/info/:name", httpHandler.GetPodInfo) // Information of Pod (detail page)
+	r.GET("/pod/usage/:name", httpHandler.GetPodUsage)
 
-	r.GET("/pod/logs/:namespace/:name", httpHandler.GetLogsOfPod) // TODO
+	r.GET("/pod/logs/:namespace/:name", httpHandler.GetLogsOfPod) // TODO (ERROR)
 
-	r.GET("/workload/controller/events/:namespace/:name", httpHandler.GetEventsByController) // Only 10
+	//r.GET("/workload/controller/events/:namespace/:name", httpHandler.GetEventsByController) // Only 10
 
 	log.Fatal(http.ListenAndServe(":9000", r))
 

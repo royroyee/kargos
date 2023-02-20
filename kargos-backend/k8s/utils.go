@@ -2,9 +2,11 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	cm "github.com/boanlab/kargos/common"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
@@ -252,13 +254,13 @@ func (kh K8sHandler) TransferPod(podList *corev1.PodList) []cm.Pod {
 // -- StatefulSets -- //
 
 func (kh K8sHandler) GetStatefulSetList() (*appsv1.StatefulSetList, error) {
-	staefulSetList, err := kh.K8sClient.AppsV1().StatefulSets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	statefulSetList, err := kh.K8sClient.AppsV1().StatefulSets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 
-	return staefulSetList, nil
+	return statefulSetList, nil
 }
 
 // -- Daemon sets -- //
@@ -398,7 +400,7 @@ func NodeStatus(node *corev1.Node) string {
 	}
 	return "Not Ready"
 }
-func (kh K8sHandler) calculatePodUsage(podName string, namespace string) (cpuPercent int64, memPercent int64, err error) {
+func (kh K8sHandler) calculatePodUsage(podName string, namespace string) (int64, int64, error) {
 	// Get the current CPU and memory usage of the pod
 	podMetrics, err := kh.MetricK8sClient.MetricsV1beta1().PodMetricses(namespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
@@ -410,28 +412,76 @@ func (kh K8sHandler) calculatePodUsage(podName string, namespace string) (cpuPer
 	if err != nil {
 		return 0.0, 0.0, err
 	}
-	if len(pod.Spec.Containers) < 1 {
-		return 0.0, 0.0, nil
-	}
-	//cpuLimit := pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()
-	//memLimit := pod.Spec.Containers[0].Resources.Limits.Memory().Value()
 
-	//// Get the CPU limit for the pod, defaulting to 1 core (1000 millicores) if not set
-	//cpuLimit := float64(1000)
-	//if pod.Spec.Containers[0].Resources.Limits != nil && pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue() != 0 {
-	//	cpuLimit = float64(pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue())
-	//}
-	//cpuLimit /= 1000.0 // Convert to cores
-	//
-	//// Get the memory limit for the pod
-	//memLimit := float64(1000)
-	//if pod.Spec.Containers[0].Resources.Limits != nil && pod.Spec.Containers[0].Resources.Limits.Memory().MilliValue() != 0 {
-	//	memLimit = float64(pod.Spec.Containers[0].Resources.Limits.Memory().MilliValue())
-	//}
-	//memLimit /= 1000.0 // Convert to cores
+	if len(pod.Spec.Containers) < 1 {
+		return 0.0, 0.0, errors.New("no containers fount in the pod")
+	}
+	if len(podMetrics.Containers) < 1 {
+		return 0.0, 0.0, errors.New("no containers fount in the pod")
+
+	}
 
 	cpuUsage := podMetrics.Containers[0].Usage.Cpu().MilliValue()
 	memUsage := podMetrics.Containers[0].Usage.Memory().Value() / 1048576 // Convert bytes to mebibytes
 
 	return cpuUsage, memUsage, nil
 }
+
+func (kh K8sHandler) GetReplicaSetList() (*appsv1.ReplicaSetList, error) {
+	replicaSetList, err := kh.K8sClient.AppsV1().ReplicaSets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return replicaSetList, nil
+}
+
+func (kh K8sHandler) GetJobList() (*batchv1.JobList, error) {
+	jobList, err := kh.K8sClient.BatchV1().Jobs(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return jobList, nil
+}
+
+func (kh K8sHandler) GetCronJobList() (*batchv1.CronJobList, error) {
+	cronjobList, err := kh.K8sClient.BatchV1().CronJobs(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return cronjobList, nil
+}
+
+func (kh K8sHandler) GetPVCInfo(namespace, pvcName string) (string, string, bool, error) {
+	pvc, err := kh.K8sClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+	if err != nil {
+		return "", "", false, err
+	}
+
+	claimName := pvc.ObjectMeta.GetName()
+	accessMode := pvc.Spec.AccessModes[0]
+	readonly := pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeFilesystem
+
+	return string(accessMode), claimName, readonly, nil
+}
+
+//func (kh K8sHandler) GetVolumeInfo(volumeName string, namespace string) (string, string, bool, error) {
+//	pv, err := kh.K8sClient.CoreV1().PersistentVolumes().Get(context.TODO(), volumeName, metav1.GetOptions{})
+//	if err != nil {
+//		return "", "", false, err
+//	}
+//
+//	if pv.Spec.ClaimRef == nil {
+//		return "", "", false, fmt.Errorf("No claim found for volume %s", volumeName)
+//	}
+//
+//	pvcName := pv.Spec.ClaimRef.Name
+//	pvc, err := kh.K8sClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+//	if err != nil {
+//		return "", "", false, err
+//	}
+//
+//	return pvc.Spec.VolumeMode, pvcName, pvc.Spec.ReadOnly, nil
+//}

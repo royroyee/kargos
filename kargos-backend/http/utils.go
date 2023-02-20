@@ -26,7 +26,7 @@ func (httpHandler HTTPHandler) GetOverviewStatus(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusOK)
 }
 
-func (httpHandler HTTPHandler) GetNodeUsage(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (httpHandler HTTPHandler) GetNodeUsageOverview(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	nodeUsage, err := httpHandler.k8sHandler.GetNodeUsageAvg()
 	if err != nil {
@@ -35,6 +35,43 @@ func (httpHandler HTTPHandler) GetNodeUsage(w http.ResponseWriter, r *http.Reque
 	}
 
 	result, err := json.Marshal(&nodeUsage)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+func (httpHandler HTTPHandler) GetNodeUsage(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	nodeUsage, err := httpHandler.k8sHandler.GetNodeUsage(ps.ByName("name"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := json.Marshal(&nodeUsage)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (httpHandler HTTPHandler) GetPodUsage(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	podUsage, err := httpHandler.k8sHandler.GetPodUsageDetail(ps.ByName("name"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := json.Marshal(&podUsage)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -83,14 +120,14 @@ func (httpHandler HTTPHandler) GetTopPod(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusOK)
 }
 
-func (httpHandler HTTPHandler) GetPodDetail(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (httpHandler HTTPHandler) GetPodInfo(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
-	podDetail, err := httpHandler.k8sHandler.GetRecordOfPod(ps.ByName("name"))
+	podInfo, err := httpHandler.k8sHandler.GetInfoOfPod(ps.ByName("name"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	result, err := json.Marshal(&podDetail)
+	result, err := json.Marshal(&podInfo)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(result)
@@ -111,19 +148,19 @@ func (httpHandler HTTPHandler) GetLogsOfPod(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusOK)
 }
 
-//func (httpHandler HTTPHandler) GetLogsOfNode(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-//
-//	logsOfNode, err := httpHandler.k8sHandler.GetLogsOfNode(ps.ByName("name"))
-//	if err != nil {
-//		http.Error(w, err.Error(), http.StatusBadRequest)
-//		return
-//	}
-//	result, err := json.Marshal(&logsOfNode)
-//
-//	w.Header().Set("Content-Type", "application/json")
-//	w.Write(result)
-//	w.WriteHeader(http.StatusOK)
-//}
+func (httpHandler HTTPHandler) GetLogsOfNode(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	logsOfNode, err := httpHandler.k8sHandler.GetLogsOfNode(ps.ByName("name"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	result, err := json.Marshal(&logsOfNode)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
 
 func (httpHandler HTTPHandler) GetEvents(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
@@ -289,6 +326,24 @@ func (httpHandler HTTPHandler) GetControllersByFilter(w http.ResponseWriter, r *
 	w.WriteHeader(http.StatusOK)
 }
 
+func (httpHandler HTTPHandler) GetControllerInfo(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+
+	// Parse the query parameters
+
+	controllerType := r.URL.Query().Get("type")
+
+	controllerInfo, err := httpHandler.k8sHandler.GetControllerInfo(controllerType, params.ByName("namespace"), params.ByName("name"))
+	result, err := json.Marshal(&controllerInfo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (httpHandler HTTPHandler) GetControllersByType(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
 	// Parse the query parameters
@@ -315,7 +370,7 @@ func (httpHandler HTTPHandler) GetControllersByType(w http.ResponseWriter, r *ht
 
 func (httpHandler HTTPHandler) GetEventsByController(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
-	nodeInfo, err := httpHandler.k8sHandler.GetEventsByController(params.ByName("namespace"), params.ByName("name"))
+	nodeInfo, err := httpHandler.k8sHandler.GetEventsByController(params.ByName(params.ByName("name")))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -350,9 +405,30 @@ func (httpHandler HTTPHandler) GetNumberOfNodes(w http.ResponseWriter, r *http.R
 	w.Write(result)
 	w.WriteHeader(http.StatusOK)
 }
-func (httpHandler HTTPHandler) GetNumberOfEvents(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-	count, err := httpHandler.k8sHandler.NumberOfEvents()
+func (httpHandler HTTPHandler) GetNumberOfControllers(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	namespace := r.URL.Query().Get("namespace")
+	controllerType := r.URL.Query().Get("type")
+	count, err := httpHandler.k8sHandler.NumberOfControllers(namespace, controllerType)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := json.Marshal(&count)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+func (httpHandler HTTPHandler) GetNumberOfEvents(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	eventLevel := r.URL.Query().Get("level")
+	count, err := httpHandler.k8sHandler.NumberOfEvents(eventLevel)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

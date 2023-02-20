@@ -299,13 +299,14 @@ func (kh K8sHandler) GetTopNode() (cm.TopNode, error) {
 
 	collection := kh.session.DB("kargos").C("node")
 
+	now := time.Now()
 	// Define the cutoff time as 1 minute ago
-	cutoffTime := time.Now().Add(-1 * time.Minute).Format("2006-01-02 15:04")
+	cutoffTime := now.Add(-1 * time.Minute).Format("2006-01-02 15:04")
 
 	// Find the top 3 nodes with highest cpuusage and ramusage among the most recent data
 	pipe := collection.Pipe([]bson.M{
-		// Filter out documents with a timestamp that is more than 1 minute in the past
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime}}},
+
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now}}},
 		bson.M{"$sort": bson.M{"cpuusage": -1}},
 		bson.M{"$limit": 3},
 	})
@@ -324,14 +325,8 @@ func (kh K8sHandler) GetTopNode() (cm.TopNode, error) {
 
 	// Find the top 3 nodes with highest ramusage among the most recent data
 	pipe = collection.Pipe([]bson.M{
-		// Filter out documents with a timestamp that is more than 1 minute in the past
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime}}},
-		// Group by name and take the first 3 groups
-		//bson.M{"$group": bson.M{
-		//	"_id":   "$name",
-		//	"ram":   bson.M{"$first": "$ramusage"},
-		//	"count": bson.M{"$sum": 1},
-		//}},
+
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now}}},
 		bson.M{"$sort": bson.M{"ramusage": -1}},
 		bson.M{"$limit": 3},
 	})
@@ -359,13 +354,13 @@ func (kh K8sHandler) GetTopPod() (cm.TopPod, error) {
 	collection := kh.session.DB("kargos").C("podusage")
 
 	// Define the cutoff time as 1 minute ago
-	cutoffTime := time.Now().Add(-1 * time.Minute).Format("2006-01-02 15:04")
+	now := time.Now()
+	cutoffTime := now.Add(-1 * time.Minute).Format("2006-01-02 15:04")
 
 	// Find the top 3 pods with highest cpuusage and ramusage among the most recent data
 	pipe := collection.Pipe([]bson.M{
-		// Filter out documents with a timestamp that is more than 1 minute in the past
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime}}},
 
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now.Format("2006-01-02 15:04")}}},
 		bson.M{"$sort": bson.M{"cpuusage": -1}},
 		bson.M{"$limit": 3},
 	})
@@ -385,7 +380,7 @@ func (kh K8sHandler) GetTopPod() (cm.TopPod, error) {
 	// Find the top 3 pods with highest ramusage among the most recent data
 	pipe = collection.Pipe([]bson.M{
 		// Filter out documents with a timestamp that is more than 1 minute in the past
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime}}},
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now.Format("2006-01-02 15:04")}}},
 		////	Group by name and take the first 3 groups
 		//bson.M{"$group": bson.M{
 		//	"_id":   "$name",
@@ -739,6 +734,23 @@ func (kh K8sHandler) GetEventsByController(controllerName string) ([]cm.Event, e
 	filter := bson.M{"name": controllerName}
 
 	err := collection.Find(filter).Limit(limit).Sort("-created").All(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	return result, nil
+}
+
+func (kh K8sHandler) GetContainersOfPod(podName string) (cm.Containers, error) {
+	var result cm.Containers
+
+	collection := kh.session.DB("kargos").C("podusage")
+	filter := bson.M{"name": podName}
+
+	// quickly find the most recent data without having to sort the entire collection.
+	sort := []string{"-timestamp"}
+	limit := 1
+	err := collection.Find(filter).Sort(sort...).Limit(limit).One(&result)
 	if err != nil {
 		log.Println(err)
 		return result, err

@@ -2,16 +2,13 @@ package k8s
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	cm "github.com/boanlab/kargos/common"
 	"gopkg.in/mgo.v2"
-	"io"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"log"
 	"strings"
@@ -479,15 +476,12 @@ func (kh K8sHandler) GetController() []cm.Controller {
 func (kh K8sHandler) GetLogsOfPod(namespace string, podName string) ([]string, error) {
 	var result []string
 
-	// create a time range for the logs
-	now := time.Now()
-	before := now.Add(-24 * time.Hour) // get logs from the last 24 hours
-
 	// create options for retrieving the logs
 	options := &v1.PodLogOptions{
 		Timestamps: true,
-		SinceTime:  &metav1.Time{Time: before},
+		TailLines:  new(int64),
 	}
+	*options.TailLines = 30
 
 	// get the logs for the specified pod
 	req := kh.K8sClient.CoreV1().Pods(namespace).GetLogs(podName, options)
@@ -507,14 +501,8 @@ func (kh K8sHandler) GetLogsOfPod(namespace string, podName string) ([]string, e
 		dateEnd := strings.Index(line[dateStart+1:], "\"}")
 		dateStr := line[dateStart+9 : dateStart+1+dateEnd]
 
-		// parse the timestamp in the log line
-		ts, err := time.Parse(time.Now().Format("2006-01-02 15:04"), dateStr)
-		if err != nil {
-			return result, err
-		}
-
 		// format the log line with the timestamp and pod name
-		formatted := fmt.Sprintf("%s [%s] %s", ts.Format("2006-01-02 15:04"), podName, line[dateStart+1+dateEnd+3:])
+		formatted := fmt.Sprintf("%s [%s] %s", dateStr, podName, line[dateStart+1+dateEnd+3:])
 		result = append(result, formatted)
 	}
 
@@ -527,63 +515,50 @@ func (kh K8sHandler) GetLogsOfPod(namespace string, podName string) ([]string, e
 }
 
 func (kh K8sHandler) GetLogsOfNode(nodeName string) ([]string, error) {
-	// create a time range for the logs
-	now := time.Now()
-	before := now.Add(-24 * time.Hour) // get logs from the last 24 hours
-
-	// create the REST client for the nodes API
-	restConfig := kh.K8sClient.RESTClient()
-
-	// create the URL for the node logs
-	nodeLogURL := restConfig.Post().
-		Resource("nodes").
-		Name(nodeName).
-		SubResource("log").
-		VersionedParams(&v1.PodLogOptions{
-			Timestamps: true,
-			SinceTime:  &metav1.Time{Time: before},
-		}, scheme.ParameterCodec).URL()
-
-	// create the request for the node logs
-	req := restConfig.Get().
-		AbsPath(nodeLogURL.String())
-
-	// start the request
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	readCloser, err := req.Stream(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer readCloser.Close()
-
-	// read the logs and store them in a buffer
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, readCloser)
-	if err != nil {
-		return nil, err
-	}
-
-	// split the logs into lines
-	scanner := bufio.NewScanner(&buf)
 	var result []string
+
+	// create options for retrieving the kubelet logs
+	options := &v1.PodLogOptions{
+		Container:  "kubelet",
+		Timestamps: true,
+		TailLines:  new(int64),
+	}
+	*options.TailLines = 30
+
+	// get the kubelet logs for the specified node
+	podName := fmt.Sprintf("kubelet-%s", nodeName)
+	req := kh.K8sClient.CoreV1().Pods("kube-system").GetLogs(podName, options)
+	logs, err := req.Stream(context.Background())
+	if err != nil {
+		return result, err
+	}
+	defer logs.Close()
+
+	// read the kubelet logs and format them with timestamps and node name
+	scanner := bufio.NewScanner(logs)
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// parse the timestamp in the log line
-		tsEnd := strings.Index(line, " ")
-		tsStr := line[:tsEnd]
+		// extract the timestamp from the log line
+		spaceIndex := strings.Index(line, " ")
+		if spaceIndex == -1 {
+			return result, fmt.Errorf("invalid log line: %s", line)
+		}
+		timestampStr := line[:spaceIndex]
 
-		// format the log line with the timestamp and node name
-		ts, err := time.Parse("2006-01-02 15:04", tsStr)
+		// parse the timestamp in the log line
+		ts, err := time.Parse(time.RFC3339Nano, timestampStr)
 		if err != nil {
 			return result, err
 		}
-		formatted := fmt.Sprintf("%s [%s] %s", ts.Format(time.RFC3339), nodeName, line[tsEnd+1:])
+
+		// format the log line with the timestamp and node name
+		formatted := fmt.Sprintf("%s [%s] %s", ts.Format(time.RFC3339), nodeName, line[spaceIndex+1:])
 		result = append(result, formatted)
 	}
+
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return result, err
 	}
 
 	// return the result slice

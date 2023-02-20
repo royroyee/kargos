@@ -134,6 +134,20 @@ func (httpHandler HTTPHandler) GetPodInfo(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
+func (httpHandler HTTPHandler) GetContainers(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	containers, err := httpHandler.k8sHandler.GetContainersOfPod(ps.ByName("name"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	result, err := json.Marshal(&containers)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (httpHandler HTTPHandler) GetLogsOfPod(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	logsOfPod, err := httpHandler.k8sHandler.GetLogsOfPod(ps.ByName("namespace"), ps.ByName("name"))

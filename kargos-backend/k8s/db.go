@@ -468,8 +468,8 @@ func (kh K8sHandler) StorePodInfoInDB() {
 	}
 
 	////Test (TODO DELETE)
-	pods, err := kh.GetPodUsage()
-	kh.StorePodUsageInDB(pods)
+	//pods, err := kh.GetPodUsage()
+	//kh.StorePodUsageInDB(pods)
 	// TEST
 }
 

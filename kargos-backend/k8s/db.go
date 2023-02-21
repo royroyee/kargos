@@ -47,7 +47,7 @@ func (kh K8sHandler) DBSession() {
 func GetDBSession() *mgo.Session {
 	log.Println("Create DB Session .. ")
 	session, err := mgo.Dial("mongodb://db-service:27017") // db-service is name of mongodb service(kubernetes)
-	//session, err := mgo.Dial("mongodb://localhost:27017")
+	// session, err := mgo.Dial("mongodb://localhost:27017")
 
 	//// Check environment variables for mongodb.
 	//mongodbIP := os.Getenv("MONGODB_LISTEN_ADDR")
@@ -306,7 +306,7 @@ func (kh K8sHandler) GetTopNode() (cm.TopNode, error) {
 	// Find the top 3 nodes with highest cpuusage and ramusage among the most recent data
 	pipe := collection.Pipe([]bson.M{
 
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now}}},
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lt": now.Format("2006-01-02 15:04")}}},
 		bson.M{"$sort": bson.M{"cpuusage": -1}},
 		bson.M{"$limit": 3},
 	})
@@ -326,7 +326,7 @@ func (kh K8sHandler) GetTopNode() (cm.TopNode, error) {
 	// Find the top 3 nodes with highest ramusage among the most recent data
 	pipe = collection.Pipe([]bson.M{
 
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now}}},
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lt": now.Format("2006-01-02 15:04")}}},
 		bson.M{"$sort": bson.M{"ramusage": -1}},
 		bson.M{"$limit": 3},
 	})
@@ -360,7 +360,9 @@ func (kh K8sHandler) GetTopPod() (cm.TopPod, error) {
 	// Find the top 3 pods with highest cpuusage and ramusage among the most recent data
 	pipe := collection.Pipe([]bson.M{
 
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now.Format("2006-01-02 15:04")}}},
+		//bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now.Format("2006-01-02 15:04")}}},
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lt": now.Format("2006-01-02 15:04")}}},
+
 		bson.M{"$sort": bson.M{"cpuusage": -1}},
 		bson.M{"$limit": 3},
 	})
@@ -379,8 +381,8 @@ func (kh K8sHandler) GetTopPod() (cm.TopPod, error) {
 
 	// Find the top 3 pods with highest ramusage among the most recent data
 	pipe = collection.Pipe([]bson.M{
-		// Filter out documents with a timestamp that is more than 1 minute in the past
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now.Format("2006-01-02 15:04")}}},
+
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lt": now.Format("2006-01-02 15:04")}}},
 		////	Group by name and take the first 3 groups
 		//bson.M{"$group": bson.M{
 		//	"_id":   "$name",
@@ -465,9 +467,9 @@ func (kh K8sHandler) StorePodInfoInDB() {
 		return
 	}
 
-	// Test (TODO DELETE)
-	//pods, err := kh.GetPodUsage()
-	//kh.StorePodUsageInDB(pods)
+	////Test (TODO DELETE)
+	pods, err := kh.GetPodUsage()
+	kh.StorePodUsageInDB(pods)
 	// TEST
 }
 
@@ -599,12 +601,12 @@ func (kh K8sHandler) storeControllerInDB() {
 		bulk.Upsert(bson.M{"name": controller.Name, "namespace": controller.Namespace}, controller)
 	}
 
-	result, err := bulk.Run()
+	_, err := bulk.Run()
 	if err != nil {
 		log.Println(err)
 	}
 
-	log.Println("Controller Data stored successfully : ", result)
+	//log.Println("Controller Data stored successfully : ", result)
 }
 
 func (kh K8sHandler) deleteControllerFromDB(controllerList []cm.Controller) {

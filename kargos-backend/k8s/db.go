@@ -47,7 +47,7 @@ func (kh K8sHandler) DBSession() {
 func GetDBSession() *mgo.Session {
 	log.Println("Create DB Session .. ")
 	session, err := mgo.Dial("mongodb://db-service:27017") // db-service is name of mongodb service(kubernetes)
-	// session, err := mgo.Dial("mongodb://localhost:27017")
+	//session, err := mgo.Dial("mongodb://localhost:27017")
 
 	//// Check environment variables for mongodb.
 	//mongodbIP := os.Getenv("MONGODB_LISTEN_ADDR")
@@ -191,8 +191,10 @@ func (kh K8sHandler) GetNodeUsageAvg() (cm.NodeUsage, error) {
 				"_id": bson.M{
 					"minute": bson.M{"$minute": bson.M{"$toDate": "$timestamp"}},
 				},
-				"avgCpuUsage": bson.M{"$avg": "$cpuusage"},
-				"avgRamUsage": bson.M{"$avg": "$ramusage"},
+				"avgCpuUsage":     bson.M{"$avg": "$cpuusage"},
+				"avgRamUsage":     bson.M{"$avg": "$ramusage"},
+				"avgNetworkUsage": bson.M{"$avg": "$networkusage"},
+				"avgDiskUsage":    bson.M{"$avg": "$diskusage"},
 			},
 		},
 		{"$limit": 24},
@@ -212,6 +214,12 @@ func (kh K8sHandler) GetNodeUsageAvg() (cm.NodeUsage, error) {
 
 		avgRamUsage := int(usage["avgRamUsage"].(float64))
 		result.RamUsage = append(result.RamUsage, avgRamUsage)
+
+		avgNetworkUsage := int(usage["avgNetworkUsage"].(float64))
+		result.NetworkUsage = append(result.NetworkUsage, avgNetworkUsage)
+
+		avgDiskUsage := int(usage["avgDiskUsage"].(float64))
+		result.DiskUsage = append(result.DiskUsage, avgDiskUsage)
 	}
 
 	return result, nil
@@ -230,7 +238,7 @@ func (kh K8sHandler) GetNodeUsage(nodeName string) (cm.NodeUsage, error) {
 			"cpuusage":     1,
 			"ramusage":     1,
 			"networkusage": 1,
-			// TODO Disk Usage
+			"diskusage":    1,
 		}},
 	})
 
@@ -250,8 +258,10 @@ func (kh K8sHandler) GetNodeUsage(nodeName string) (cm.NodeUsage, error) {
 
 		NetworkUsage := int(usage["networkusage"].(float64))
 		result.NetworkUsage = append(result.NetworkUsage, NetworkUsage)
-	}
 
+		DiskUsage := int(usage["diskusage"].(float64))
+		result.DiskUsage = append(result.DiskUsage, DiskUsage)
+	}
 	return result, nil
 }
 
@@ -263,11 +273,11 @@ func (kh K8sHandler) GetPodUsageDetail(podName string) (cm.GetPodUsage, error) {
 		{"$match": bson.M{"name": podName}},
 		{"$limit": 24},
 		{"$project": bson.M{
-			"_id":      nil,
-			"cpuusage": 1,
-			"ramusage": 1,
-			// "networkusage": 1,
-			// TODO Disk Usage
+			"_id":          nil,
+			"cpuusage":     1,
+			"ramusage":     1,
+			"networkusage": 1,
+			"diskusage":    1,
 		}},
 	})
 
@@ -285,8 +295,11 @@ func (kh K8sHandler) GetPodUsageDetail(podName string) (cm.GetPodUsage, error) {
 		RamUsage := int(usage["ramusage"].(int64))
 		result.RamUsage = append(result.RamUsage, RamUsage)
 
-		//NetworkUsage := int(usage["networkusage"].(float64))
-		//result.NetworkUsage = append(result.NetworkUsage, NetworkUsage)
+		NetworkUsage := int(usage["networkusage"].(int64))
+		result.NetworkUsage = append(result.NetworkUsage, NetworkUsage)
+
+		DiskUsage := int(usage["diskusage"].(int64))
+		result.DiskUsage = append(result.DiskUsage, DiskUsage)
 	}
 
 	return result, nil
@@ -753,6 +766,20 @@ func (kh K8sHandler) GetContainersOfPod(podName string) (cm.Containers, error) {
 	sort := []string{"-timestamp"}
 	limit := 1
 	err := collection.Find(filter).Sort(sort...).Limit(limit).One(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	return result, nil
+}
+
+func (kh K8sHandler) GetVolumesOfController(namespace string, name string) (cm.ControllerDetail, error) {
+	var result cm.ControllerDetail
+	collection := kh.session.DB("kargos").C("controller")
+
+	filter := bson.M{"namespace": namespace, "name": name}
+
+	err := collection.Find(filter).One(&result)
 	if err != nil {
 		log.Println(err)
 		return result, err

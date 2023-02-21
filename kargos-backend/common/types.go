@@ -167,11 +167,12 @@ type PodStatus struct {
 
 // Controller
 type Controller struct {
-	Namespace string   `json:"namespace"`
-	Type      string   `json:"type"`
-	Name      string   `json:"name"`
-	Pods      []string `json:"pods"`
-	Volumes   []string `json:"volumes"`
+	Namespace          string   `json:"namespace"`
+	Type               string   `json:"type"`
+	Name               string   `json:"name"`
+	Pods               []string `json:"pods"`
+	Volumes            []string `json:"volumes"`
+	TemplateContainers []string `json:"template_container"`
 }
 
 type ControllerOverview struct {
@@ -209,7 +210,9 @@ type PodUsage struct {
 	CpuUsage int64  `json:"cpu_usage"`
 	RamUsage int64  `json:"ram_usage"`
 	// TODO Network, Disk Usage
-	Timestamp string `json:"timestamp"`
+	NetworkUsage int64  `json:"network_usage"`
+	DiskUsage    int64  `json:"disk_usage"`
+	Timestamp    string `json:"timestamp"`
 
 	// Container struct
 	Containers     []Container `json:"containers"`
@@ -239,14 +242,14 @@ type PodsOfController struct {
 }
 
 type Node struct {
-	Name          string  `json:"name"`
-	CpuUsage      float64 `json:"cpu_usage"`
-	RamUsage      float64 `json:"ram_usage"`
-	DiskAllocated float64 `json:"disk_allocated"`
-	NetworkUsage  float64 `json:"network_usage"`
-	IP            string  `json:"ip"`
-	Status        string  `json:"status"`
-	Timestamp     string  `json:"timestamp"`
+	Name         string  `json:"name"`
+	CpuUsage     float64 `json:"cpu_usage"`
+	RamUsage     float64 `json:"ram_usage"`
+	DiskUsage    float64 `json:"disk_usage"`
+	NetworkUsage float64 `json:"network_usage"`
+	IP           string  `json:"ip"`
+	Status       string  `json:"status"`
+	Timestamp    string  `json:"timestamp"`
 }
 
 type NodeOverview struct {
@@ -334,4 +337,29 @@ type ControllerInfo struct {
 
 type Containers struct {
 	ContainerNames []string `json:"container_names"`
+}
+
+type Conditions struct {
+	Type   string `json:"type"`
+	Status string `json:"status"`
+	Reason string `json:"reason"`
+}
+
+type TemplateContainer struct {
+	Name     string   `json:"name"`
+	Image    string   `json:"image"`
+	Ports    Port     `json:"port"`
+	HostPort int32    `json:"host_port"`
+	Command  []string `json:"command"`
+}
+
+type Port struct {
+	ContainerPort string `json:"container_port"`
+	Name          string `json:"name"`
+	Protocol      string `json:"protocol"`
+}
+
+type ControllerDetail struct {
+	TemplateContainers []string `json:"template_containers"`
+	Volumes            []string `json:"volumes"`
 }

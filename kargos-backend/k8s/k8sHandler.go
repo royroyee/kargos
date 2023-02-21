@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"log"
+	"math/rand"
 	"strings"
 	"time"
 )
@@ -206,7 +207,9 @@ func (kh K8sHandler) GetPodUsage() ([]cm.PodUsage, error) {
 			RamUsage:       ramUsage,
 			ContainerNames: containerNames,
 			// TODO Network , Disk Usage
-			Timestamp: time.Now().Format("2006-01-02 15:04"),
+			NetworkUsage: int64(rand.Intn(25) + 20),
+			DiskUsage:    int64(rand.Intn(25) + 20),
+			Timestamp:    time.Now().Format("2006-01-02 15:04"),
 		})
 	}
 	return result, nil
@@ -216,7 +219,7 @@ func (kh K8sHandler) GetController() []cm.Controller {
 
 	var result []cm.Controller
 	var volumes []v1.Volume
-
+	var containers []v1.Container
 	deployList, _ := kh.GetDeploymentList()
 
 	if deployList != nil {
@@ -239,12 +242,19 @@ func (kh K8sHandler) GetController() []cm.Controller {
 				volumeList = append(volumeList, volume.Name)
 			}
 
+			var containerList []string
+			containers = deploy.Spec.Template.Spec.Containers
+			for _, container := range containers {
+				containerList = append(containerList, container.Name)
+			}
+
 			result = append(result, cm.Controller{
-				Name:      deploy.GetName(),
-				Type:      "deployment",
-				Namespace: deploy.GetNamespace(),
-				Pods:      pods,
-				Volumes:   volumeList,
+				Name:               deploy.GetName(),
+				Type:               "deployment",
+				Namespace:          deploy.GetNamespace(),
+				Pods:               pods,
+				Volumes:            volumeList,
+				TemplateContainers: containerList,
 			})
 		}
 	}
@@ -272,12 +282,19 @@ func (kh K8sHandler) GetController() []cm.Controller {
 				volumeOfState = append(volumeOfState, volume.Name)
 			}
 
+			var containerList []string
+			containers = statefulSet.Spec.Template.Spec.Containers
+			for _, container := range containers {
+				containerList = append(containerList, container.Name)
+			}
+
 			result = append(result, cm.Controller{
-				Name:      statefulSet.GetName(),
-				Type:      "statefulset",
-				Namespace: statefulSet.GetNamespace(),
-				Pods:      pods,
-				Volumes:   volumeOfState,
+				Name:               statefulSet.GetName(),
+				Type:               "statefulset",
+				Namespace:          statefulSet.GetNamespace(),
+				Pods:               pods,
+				Volumes:            volumeOfState,
+				TemplateContainers: containerList,
 			})
 		}
 	}
@@ -304,12 +321,19 @@ func (kh K8sHandler) GetController() []cm.Controller {
 				volumeOfDaemon = append(volumeOfDaemon, volume.Name)
 			}
 
+			var containerList []string
+			containers = daemonSet.Spec.Template.Spec.Containers
+			for _, container := range containers {
+				containerList = append(containerList, container.Name)
+			}
+
 			result = append(result, cm.Controller{
-				Name:      daemonSet.GetName(),
-				Type:      "daemonset",
-				Namespace: daemonSet.GetNamespace(),
-				Pods:      pods,
-				Volumes:   volumeOfDaemon,
+				Name:               daemonSet.GetName(),
+				Type:               "daemonset",
+				Namespace:          daemonSet.GetNamespace(),
+				Pods:               pods,
+				Volumes:            volumeOfDaemon,
+				TemplateContainers: containerList,
 			})
 		}
 	}
@@ -336,12 +360,19 @@ func (kh K8sHandler) GetController() []cm.Controller {
 				volumeOfJob = append(volumeOfJob, volume.Name)
 			}
 
+			var containerList []string
+			containers = job.Spec.Template.Spec.Containers
+			for _, container := range containers {
+				containerList = append(containerList, container.Name)
+			}
+
 			result = append(result, cm.Controller{
-				Name:      job.GetName(),
-				Type:      "job",
-				Namespace: job.GetNamespace(),
-				Pods:      pods,
-				Volumes:   volumeOfJob,
+				Name:               job.GetName(),
+				Type:               "job",
+				Namespace:          job.GetNamespace(),
+				Pods:               pods,
+				Volumes:            volumeOfJob,
+				TemplateContainers: containerList,
 			})
 		}
 	}
@@ -399,12 +430,19 @@ func (kh K8sHandler) GetController() []cm.Controller {
 				volumeOfReplicaSet = append(volumeOfReplicaSet, volume.Name)
 			}
 
+			var containerList []string
+			containers = replicaSet.Spec.Template.Spec.Containers
+			for _, container := range containers {
+				containerList = append(containerList, container.Name)
+			}
+
 			result = append(result, cm.Controller{
-				Name:      replicaSet.GetName(),
-				Type:      "replicaset",
-				Namespace: replicaSet.GetNamespace(),
-				Pods:      pods,
-				Volumes:   volumeOfReplicaSet,
+				Name:               replicaSet.GetName(),
+				Type:               "replicaset",
+				Namespace:          replicaSet.GetNamespace(),
+				Pods:               pods,
+				Volumes:            volumeOfReplicaSet,
+				TemplateContainers: containerList,
 			})
 		}
 	}
@@ -676,7 +714,7 @@ func (kh K8sHandler) GetControllerInfo(controllerType string, namespace string, 
 				mounts = append(mounts, volumeMount.Name)
 			}
 			for _, env := range controller.Spec.Template.Spec.Containers[0].Env {
-				envs = append(envs, env.Name)
+				envs = append(envs, fmt.Sprintf("%s:%s", env.Name, env.Value))
 			}
 
 			for key, value := range controller.Labels {
@@ -849,3 +887,154 @@ func (kh K8sHandler) GetControllerInfo(controllerType string, namespace string, 
 
 	return result, nil
 }
+
+func (kh K8sHandler) GetConditions(controllerType string, namespace string, name string) ([]cm.Conditions, error) {
+
+	var result []cm.Conditions
+
+	if controllerType == "deployment" {
+
+		deployment, err := kh.K8sClient.AppsV1().Deployments(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+		conditions := deployment.Status.Conditions
+		if len(conditions) > 0 {
+			for _, condition := range conditions {
+				//result.Type = append(result.Type, string(condition.Type))
+				//result.Status = append(result.Status, string(condition.Status))
+				//result.Reason = append(result.Reason, condition.Reason)
+
+				result = append(result, cm.Conditions{
+					Type:   string(condition.Type),
+					Status: string(condition.Status),
+					Reason: (condition.Reason),
+				})
+			}
+		}
+	} else if controllerType == "daemonset" {
+		daemonset, err := kh.K8sClient.AppsV1().DaemonSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+		conditions := daemonset.Status.Conditions
+		if len(conditions) > 0 {
+			for _, condition := range conditions {
+				result = append(result, cm.Conditions{
+					Type:   string(condition.Type),
+					Status: string(condition.Status),
+					Reason: (condition.Reason),
+				})
+			}
+		}
+
+	} else if controllerType == "staefulset" {
+		statefulset, err := kh.K8sClient.AppsV1().StatefulSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+		conditions := statefulset.Status.Conditions
+		if len(conditions) > 0 {
+			for _, condition := range conditions {
+				result = append(result, cm.Conditions{
+					Type:   string(condition.Type),
+					Status: string(condition.Status),
+					Reason: (condition.Reason),
+				})
+			}
+		}
+
+	} else if controllerType == "job" {
+		job, err := kh.K8sClient.BatchV1().Jobs(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+		conditions := job.Status.Conditions
+		if len(conditions) > 0 {
+			for _, condition := range conditions {
+				result = append(result, cm.Conditions{
+					Type:   string(condition.Type),
+					Status: string(condition.Status),
+					Reason: (condition.Reason),
+				})
+			}
+		}
+
+		//} else if controllerType == "cronjob" {
+		//	cronjob, err := kh.K8sClient.BatchV1beta1().CronJobs(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		//	if err != nil {
+		//		return result, err
+		//	}
+		//
+		//	if len(cronjob.Status.Conditions) > 0 {
+		//		for _, condition := range cronjob.Status.Conditions {
+		//			result.Type = append(result.Type, string(condition.Type))
+		//			result.Status = append(result.Status, string(condition.Status))
+		//			result.Reason = append(result.Reason, condition.Reason)
+		//		}
+		//	}
+	} else if controllerType == "replicaset" {
+		replicaset, err := kh.K8sClient.AppsV1().ReplicaSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return result, err
+		}
+		conditions := replicaset.Status.Conditions
+		if len(conditions) > 0 {
+			for _, condition := range conditions {
+				result = append(result, cm.Conditions{
+					Type:   string(condition.Type),
+					Status: string(condition.Status),
+					Reason: (condition.Reason),
+				})
+			}
+		}
+
+	} else {
+		err := fmt.Errorf("Invalid Controller Type %v", controllerType)
+		return result, err
+	}
+	return result, nil
+}
+
+func (kh K8sHandler) GetControllerDetail(namespace string, name string) (cm.ControllerDetail, error) {
+
+	result, err := kh.GetVolumesOfController(namespace, name)
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+//func (kh K8sHandler) GetTemplateContainers(controllerType string, namespace string, name string) ([]cm.TemplateContainer, error) {
+//	var result []cm.TemplateContainer
+//
+//	deployment, err := kh.K8sClient.AppsV1().Deployments(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+//	if err != nil {
+//		return result, err
+//	}
+//
+//	if len(deployment.Spec.Template.Spec.Containers) > 1 {
+//
+//		for _, container := range deployment.Spec.Template.Spec.Containers {
+//			c := cm.TemplateContainer{
+//				Name:    container.Name,
+//				Image:   container.Image,
+//				Command: container.Command,
+//			}
+//			for i, port := range container.Ports {
+//				c.Ports[i] = cm.Port{
+//					ContainerPort: port.ContainerPort,
+//					Name:          port.Name,
+//					Protocol:      string(port.Protocol),
+//				}
+//				if port.HostPort != 0 {
+//					c.Ports[i].HostPort = port.HostPort
+//				}
+//			}
+//		}
+//		result = append(result, c)
+//
+//	}
+//	return result, nil
+//}

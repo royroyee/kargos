@@ -41,7 +41,7 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 	r.GET("/node/usage/:name", httpHandler.GetNodeUsage)
 	r.GET("/node/info/:name", httpHandler.GetNodeInfo)
 	r.GET("/nodes/count", httpHandler.GetNumberOfNodes)
-	r.GET("/node/logs/:name", httpHandler.GetLogsOfNode) // TODO (ERROR)
+	//	r.GET("/node/logs/:name", httpHandler.GetLogsOfNode) // TODO (Agent)
 
 	// Workload
 	r.GET("/workload/namespaces", httpHandler.GetNamespace)
@@ -49,14 +49,17 @@ func (httpHandler HTTPHandler) StartHTTPServer() {
 
 	r.GET("/workload/count", httpHandler.GetNumberOfControllers)
 	r.GET("/workload/info/:namespace/:name", httpHandler.GetControllerInfo)
+	r.GET("/workload/conditions/:namespace/:name", httpHandler.GetConditions)
+	r.GET("/workload/detail/:namespace/:name", httpHandler.GetControllerDetail)
+	//r.GET("/workload/containers/:namespace/:name", httpHandler.GetTemplateContainers)
 
 	r.GET("/pod/info/:name", httpHandler.GetPodInfo) // Information of Pod (detail page)
 	r.GET("/pod/usage/:name", httpHandler.GetPodUsage)
 
-	r.GET("/pod/logs/:namespace/:name", httpHandler.GetLogsOfPod) // TODO pretty
+	r.GET("/pod/logs/:namespace/:name", httpHandler.GetLogsOfPod)
 	r.GET("/pod/containers/:name", httpHandler.GetContainers)
 
-	//r.GET("/workload/controller/events/:namespace/:name", httpHandler.GetEventsByController) // Only 10
+	//	r.GET("/workload/controller/events/:name", httpHandler.GetEventsByController) // Only 10
 
 	log.Fatal(http.ListenAndServe(":9000", r))
 

@@ -25,7 +25,7 @@ kubectl apply -f https://raw.githubusercontent.com/boanlab/kargos/main/kargos.ya
 If you would like more diverse preferences, you can use `Docker` to pull each components to your system and set it up for yourself.
 - [Kargos-agent](./kargos-agent): For probing data from each nodes.
 - [Kargos-backend](./kargos-backend): For storing data and processing data from infra and providing REST API for frontend.
-- [Kargos-frontend](./kargos-backend): For providing visual information to the user.
+- [Kargos-frontend](./kargos-frontend): For providing visual information to the user.
 
 
 

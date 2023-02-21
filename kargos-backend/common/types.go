@@ -3,66 +3,52 @@ package common
 import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // Overview main
-type Home struct {
-	Version    string `json:"kubernetes_version"` // kubernetes version
-	TotalNodes int    `json:"total_nodes"`        // total nodes
-	Created    string `json:"created"`            // created
-
-	Tabs map[string]int // total_resources ~ daemon_sets
-
-	TopNamespaces []string `json:"top_namespaces"`
-	AlertCount    int      `json:"alert_count"` // warning 등의 이벤트만
+type Overview struct {
+	NodeStatus NodeStatus `json:"node_status"`
+	PodStatus  PodStatus  `json:"pod_status"`
 }
 
-// Alert
-type Alert struct {
-	tag     string `json:"tag"`
-	message string `json:"message"`
-	uuid    string `json:"uuid"`
-}
+//// Node
+//type Node struct {
+//	Name          string                  `json:"name"`
+//	CpuUsage      float64                 `json:"cpu_usage"`
+//	RamUsage      float64                 `json:"ram_usage"`
+//	DiskAllocated float64                 `json:"disk_allocated"`
+//	IP            string                  `json:"ip"`
+//	Ready         string                  `json:"ready"`
+//	OsImage       string                  `json:"os_image"`
+//	Pods          []Pod                   `json:"pods"`
+//	Record        map[string]RecordOfNode `json:"record"`
+//}
+//
+//// NodeMetric (DB ( last 24 hours etc ..)
+//type RecordOfNode struct {
+//	Name          string    `json:"name"`
+//	CpuUsage      float64   `json:"cpu_usage"`
+//	RamUsage      float64   `json:"ram_usage"`
+//	DiskAllocated float64   `json:"disk_allocated"`
+//	Timestamp     time.Time `json:"timestamp"`
+//}
 
-// Node
-type Node struct {
-	Name          string                  `json:"name"`
-	CpuUsage      float64                 `json:"cpu_usage"`
-	RamUsage      float64                 `json:"ram_usage"`
-	DiskAllocated float64                 `json:"disk_allocated"`
-	IP            string                  `json:"ip"`
-	Ready         string                  `json:"ready"`
-	OsImage       string                  `json:"os_image"`
-	Pods          []Pod                   `json:"pods"`
-	Record        map[string]RecordOfNode `json:"record"`
-}
-
-// NodeMetric (DB ( last 24 hours etc ..)
-type RecordOfNode struct {
-	Name          string    `json:"name"`
-	CpuUsage      float64   `json:"cpu_usage"`
-	RamUsage      float64   `json:"ram_usage"`
-	DiskAllocated float64   `json:"disk_allocated"`
-	Timestamp     time.Time `json:"timestamp"`
-}
-
-// Pod
-type Pod struct {
-	Name             string    `json:"name"`
-	Namespace        string    `json:"namespace"`
-	PodIP            string    `json:"pod_ip"`
-	Status           string    `json:"status"` // Running  or Pending
-	ServiceConnected *bool     `json:"service_connected"`
-	Restarts         int32     `json:"restarts"`
-	Image            string    `json:"image"`
-	Age              string    `json:"age"`
-	Timestamp        time.Time `json:"timestamp"` // not pod's created , just for db query
-
-	// Container struct
-	Containers     []Container `json:"containers"`
-	ContainerNames []string
-}
+//// Pod
+//type Pod struct {
+//	Name             string    `json:"name"`
+//	Namespace        string    `json:"namespace"`
+//	PodIP            string    `json:"pod_ip"`
+//	Status           string    `json:"status"` // Running  or Pending
+//	ServiceConnected *bool     `json:"service_connected"`
+//	Restarts         int32     `json:"restarts"`
+//	Image            string    `json:"image"`
+//	Age              string    `json:"age"`
+//	Timestamp        time.Time `json:"timestamp"` // not pod's created , just for db query
+//
+//	// Container struct
+//	Containers     []Container `json:"containers"`
+//	ContainerNames []string
+//}
 
 // Deployment
 type Deployment struct {
@@ -140,21 +126,6 @@ type DaemonSet struct {
 	Details string `json:"details"`
 }
 
-// Persistent Volume
-type PersistentVolume struct {
-	Name          string                           `json:"name"`
-	Capacity      v1.ResourceList                  `json:"capacity"`
-	AccessModes   []v1.PersistentVolumeAccessMode  `json:"access_modes"`
-	ReclaimPolicy v1.PersistentVolumeReclaimPolicy `json:"reclaim_policy"`
-	Status        string                           `json:"status"`
-	Claim         string                           `json:"claim"`
-	StorageClass  string                           `json:"storage_class"`
-	Reason        string                           `json:"reason"`
-	MountOption   []string                         `json:"mount_option"`
-	Labels        map[string]string                `json:"labels"`
-	Created       string                           `json:"created"`
-}
-
 // Process (Infra agent)
 type Process struct {
 	Name     string  `json:"name"`
@@ -169,4 +140,226 @@ type Container struct {
 	ID        string    `json:"name"`
 	Namespace string    `json:"image"`
 	Processes []Process `json:"processes"`
+}
+
+// 02.11 ~ //
+
+// Event
+type Event struct {
+	Created    string `json:"created"`
+	EventLevel string `json:"event_level"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	Message    string `json:"message"`
+	Type       string `json:"type"`
+}
+
+type NodeStatus struct {
+	NotReady []string `json:"not_ready""`
+	Ready    []string `json:"ready"`
+}
+
+type PodStatus struct {
+	Error   []string `json:"error"`
+	Pending []string `json:"pending"`
+	Running int      `json:"running"`
+}
+
+// Controller
+type Controller struct {
+	Namespace          string   `json:"namespace"`
+	Type               string   `json:"type"`
+	Name               string   `json:"name"`
+	Pods               []string `json:"pods"`
+	Volumes            []string `json:"volumes"`
+	TemplateContainers []string `json:"template_container"`
+}
+
+type ControllerOverview struct {
+	Namespace string   `json:"namespace"`
+	Type      string   `json:"type"`
+	Name      string   `json:"name"`
+	Pods      []string `json:"pods"`
+}
+
+// Pod
+type Pod struct {
+	Name       string   `json:"name"`
+	Namespace  string   `json:"namespace"`
+	CpuUsage   int64    `json:"cpu_usage"`
+	RamUsage   int64    `json:"ram_usage"`
+	Restarts   int32    `json:"restarts"`
+	PodIP      string   `json:"pod_ip"`
+	Node       string   `json:"node"`
+	Volumes    []string `json:"volumes"`
+	Controller string   `json:"controller"`
+	Status     string   `json:"status"`
+	Image      string   `json:"image"`
+	Timestamp  string   `json:"timestamp"`
+
+	//ControllerKind string `json:"controller_kind"`
+	//ControllerName string `json:"controller_name"`
+
+	// Container struct
+	Containers     []Container `json:"containers"`
+	ContainerNames []string    `json:"container_names"`
+}
+
+type PodUsage struct {
+	Name     string `json:"name"`
+	CpuUsage int64  `json:"cpu_usage"`
+	RamUsage int64  `json:"ram_usage"`
+	// TODO Network, Disk Usage
+	NetworkUsage int64  `json:"network_usage"`
+	DiskUsage    int64  `json:"disk_usage"`
+	Timestamp    string `json:"timestamp"`
+
+	// Container struct
+	Containers     []Container `json:"containers"`
+	ContainerNames []string
+}
+type GetPodUsage struct {
+	CpuUsage     []int `json:"cpu_usage"`
+	RamUsage     []int `json:"ram_usage"`
+	NetworkUsage []int `json:"network_usage"`
+	DiskUsage    []int `json:"disk_usage"`
+}
+
+type PodInfo struct {
+	Name       string   `json:"name"`
+	Namespace  string   `json:"namespace"`
+	Image      string   `json:"image"`
+	Node       string   `json:"node"`
+	PodIP      string   `json:"pod_ip"`
+	Restarts   int32    `json:"restarts"`
+	Volumes    []string `json:"volumes"`
+	Controller string   `json:"controller"`
+	Status     string   `json:"status"`
+}
+
+type PodsOfController struct {
+	Pods []string `json:"pods"`
+}
+
+type Node struct {
+	Name         string  `json:"name"`
+	CpuUsage     float64 `json:"cpu_usage"`
+	RamUsage     float64 `json:"ram_usage"`
+	DiskUsage    float64 `json:"disk_usage"`
+	NetworkUsage float64 `json:"network_usage"`
+	IP           string  `json:"ip"`
+	Status       string  `json:"status"`
+	Timestamp    string  `json:"timestamp"`
+}
+
+type NodeOverview struct {
+	Name          string  `json:"name"`
+	CpuUsage      float64 `json:"cpu_usage"`
+	RamUsage      float64 `json:"ram_usage"`
+	DiskAllocated float64 `json:"disk_allocated"`
+	NetworkUsage  float64 `json:"network_usage"`
+	IP            string  `json:"ip"`
+	Status        string  `json:"status"`
+}
+type NodeUsage struct {
+	CpuUsage     []int `json:"cpu_usage"`
+	RamUsage     []int `json:"ram_usage"`
+	NetworkUsage []int `json:"network_usage"`
+	DiskUsage    []int `json:"disk_usage"`
+}
+
+type NodeCpuUsage struct {
+	Name     string `json:"name"`
+	CpuUsage int    `json:"cpu_usage"`
+}
+type NodeRamUsage struct {
+	Name     string `json:"name"`
+	RamUsage int    `json:"ram_usage"`
+}
+type TopNode struct {
+	Cpu []NodeCpuUsage `json:"cpu"`
+	Ram []NodeRamUsage `json:"ram"`
+}
+
+type PodCpuUsage struct {
+	Name     string `json:"name"`
+	CpuUsage int    `json:"cpu_usage"`
+}
+type PodRamUsage struct {
+	Name     string `json:"name"`
+	RamUsage int    `json:"ram_usage"`
+}
+type TopPod struct {
+	Cpu []PodCpuUsage `json:"cpu"`
+	Ram []PodRamUsage `json:"ram"`
+}
+
+type NodeInfo struct {
+	OS                      string `json:"os"`
+	HostName                string `json:"host_name"`
+	IP                      string `json:"ip"`
+	KubeletVersion          string `json:"kubelet_version"`
+	ContainerRuntimeVersion string `json:"container_runtime_version"`
+	NumContainers           int    `json:"num_containers"`
+	CpuCores                int64  `json:"cpu_cores"`
+	RamCapacity             int64  `json:"ram_capacity"`
+	Status                  bool   `json:"status"`
+}
+
+type VolumeInfo struct {
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	ClaimName string `json:"claim_name"`
+	ReadOnly  string `json:"read_only"`
+}
+
+type PersistentVolume struct {
+	Name         string                          `json:"name"`
+	Capacity     int64                           `json:"capacity"`
+	AccessModes  []v1.PersistentVolumeAccessMode `json:"access_modes"`
+	Claim        string                          `json:"claim"`
+	StorageClass string                          `json:"storage_class"`
+	Status       string                          `json:"status"`
+}
+
+type Count struct {
+	Count int `json:"count"`
+}
+
+type ControllerInfo struct {
+	Labels       []string `json:"labels"`
+	Limits       []string `json:"limits"`
+	Environment  []string `json:"environment"`
+	Mounts       []string `json:"mounts"`
+	Volumes      []string `json:"volumes"`
+	ControlledBy string   `json:"controlled_by"`
+}
+
+type Containers struct {
+	ContainerNames []string `json:"container_names"`
+}
+
+type Conditions struct {
+	Type   string `json:"type"`
+	Status string `json:"status"`
+	Reason string `json:"reason"`
+}
+
+type TemplateContainer struct {
+	Name     string   `json:"name"`
+	Image    string   `json:"image"`
+	Ports    Port     `json:"port"`
+	HostPort int32    `json:"host_port"`
+	Command  []string `json:"command"`
+}
+
+type Port struct {
+	ContainerPort string `json:"container_port"`
+	Name          string `json:"name"`
+	Protocol      string `json:"protocol"`
+}
+
+type ControllerDetail struct {
+	TemplateContainers []string `json:"template_containers"`
+	Volumes            []string `json:"volumes"`
 }

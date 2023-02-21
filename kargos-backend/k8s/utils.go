@@ -2,139 +2,20 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	cm "github.com/boanlab/kargos/common"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/batch/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	networkv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"log"
 	"math"
+	"math/rand"
+	"sort"
 	"time"
 )
-
-// TODO Filtering
-
-// Get Kubernetes Version of Node
-
-func (kh K8sHandler) GetKubeVersion() string {
-	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Println(err)
-		return ""
-	}
-
-	var result string
-	for _, node := range nodeList.Items {
-		result = node.Status.NodeInfo.KubeletVersion
-	}
-
-	return result
-}
-
-// Get Total Resources in Cluster (for overview/main)
-func (kh K8sHandler) GetTotalResources() (totalResources int, totalNamespaces int, totalDeployments int, totalPods int, totalIngresses int, totalServices int, totalPersistentVolumes int, totalJobs int, totalDaemonsets int, err error) {
-	namespaceList, err := kh.GetNamespaceList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-
-	totalNamespaces = len(namespaceList.Items)
-
-	deploymentList, err := kh.GetDeploymentList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalDeployments = len(deploymentList.Items)
-
-	podList, err := kh.GetPodList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalPods = len(podList.Items)
-
-	ingressList, err := kh.GetIngressList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalIngresses = len(ingressList.Items)
-
-	serviceList, err := kh.GetServiceList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalServices = len(serviceList.Items)
-
-	persistentVolumeList, err := kh.GetPersistentVolumeList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalPersistentVolumes = len(persistentVolumeList.Items)
-
-	jobList, err := kh.GetJobsList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalJobs = len(jobList.Items)
-
-	daemonsetList, err := kh.GetDaemonSetList()
-	if err != nil {
-		log.Println(err)
-		return 0, 0, 0, 0, 0, 0, 0, 0, 0, err
-	}
-	totalDaemonsets = len(daemonsetList.Items)
-
-	totalResources = totalNamespaces + totalDeployments + totalPods + totalIngresses + totalServices + totalPersistentVolumes + totalJobs + totalDaemonsets
-
-	return totalResources, totalNamespaces, totalDeployments, totalPods, totalIngresses, totalServices, totalPersistentVolumes, totalJobs, totalDaemonsets, nil
-}
-
-// Get Number of Nodes in Cluster
-func (kh K8sHandler) GetTotalNodes() int {
-	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Println(err)
-		return 0
-	}
-	return len(nodeList.Items)
-}
-
-// Get Date Created of Cluster
-func (kh K8sHandler) GetCreatedOfCluster() string {
-	// Get the Info of Cluster
-	cluster, _ := kh.GetClusterInfo()
-
-	// Get the creation timestamp of the cluster
-	creationTimestamp := cluster.CreationTimestamp.Time
-
-	// Format the creation timestamp as a string
-	creationTime := creationTimestamp.Format(time.RFC3339)
-
-	return creationTime
-}
-
-// TODO
-func (kh K8sHandler) GetAlertsCount() int {
-	return 0
-}
-
-// -- Cluster -- //
-
-func (kh K8sHandler) GetClusterInfo() (*corev1.ComponentStatus, error) {
-	cluster, err := kh.K8sClient.CoreV1().ComponentStatuses().Get(context.TODO(), "controller-manager", metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster information %s", err)
-	}
-	return cluster, nil
-}
 
 // --- Node -- //
 
@@ -150,41 +31,54 @@ func (kh K8sHandler) GetNodeList() ([]cm.Node, error) {
 
 	for _, node := range nodeList.Items {
 
-		// TODO fix diskUsage (only return zero)
-		cpuUsage, ramUsage, diskAllocated := kh.GetMetricUsage(node)
+		cpuUsage, ramUsage := kh.GetMetrics(node)
 
 		result = append(result, cm.Node{
-			Name:          node.GetName(),
-			CpuUsage:      cpuUsage,
-			RamUsage:      ramUsage,
-			DiskAllocated: diskAllocated,
-			IP:            node.Status.Addresses[0].Address,
+			Name:         node.GetName(),
+			CpuUsage:     cpuUsage,
+			RamUsage:     ramUsage,
+			DiskUsage:    float64(rand.Intn(25) + 20), // TODO
+			NetworkUsage: float64(rand.Intn(25) + 20), // TODO
+			IP:           node.Status.Addresses[0].Address,
+			Status:       NodeStatus(&node),
+			Timestamp:    time.Now().Format("2006-01-02 15:04"),
 		})
 	}
 	return result, nil
 }
 
-// To Store Metrics of node in DB
-func (kh K8sHandler) GetNodeMetric() ([]cm.RecordOfNode, error) {
-	var result []cm.RecordOfNode
-	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+func (kh K8sHandler) GetPodInfoList() ([]cm.PodInfo, error) {
+	var result []cm.PodInfo
+	var controller string
+	podList, err := kh.K8sClient.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 
 	if err != nil {
 		log.Println(err)
 		return result, err
 	}
 
-	for _, node := range nodeList.Items {
+	for _, pod := range podList.Items {
 
-		// TODO fix diskUsage (only return zero)
-		cpuUsage, ramUsage, diskAllocated := kh.GetMetricUsage(node)
+		volumes := []string{}
+		for _, volume := range pod.Spec.Volumes {
+			volumes = append(volumes, volume.Name)
+		}
 
-		result = append(result, cm.RecordOfNode{
-			Name:          node.GetName(),
-			CpuUsage:      cpuUsage,
-			RamUsage:      ramUsage,
-			DiskAllocated: diskAllocated,
-			Timestamp:     time.Now(),
+		// Find controller details
+		if pod.ObjectMeta.OwnerReferences != nil && len(pod.ObjectMeta.OwnerReferences) > 0 {
+			controller = pod.ObjectMeta.OwnerReferences[0].Name
+		}
+
+		result = append(result, cm.PodInfo{
+			Name:       pod.GetName(),
+			Namespace:  pod.GetNamespace(),
+			Restarts:   GetRestartCount(pod),
+			PodIP:      pod.Status.PodIP,
+			Node:       pod.Spec.NodeName,
+			Volumes:    volumes,
+			Controller: controller,
+			Status:     string(pod.Status.Phase),
+			Image:      CheckContainerOfPod(pod).Image,
 		})
 	}
 	return result, nil
@@ -200,18 +94,18 @@ func (kh K8sHandler) GetNode(nodeName string) (*corev1.Node, error) {
 	return node, nil
 }
 
-func (kh K8sHandler) GetMetricUsage(node corev1.Node) (cpuUsage float64, memoryUsage float64, diskAllocated float64) {
+func (kh K8sHandler) GetMetrics(node corev1.Node) (cpuUsage float64, memoryUsage float64) {
 	metrics, err := kh.MetricK8sClient.MetricsV1beta1().NodeMetricses().Get(context.TODO(), node.GetName(), metav1.GetOptions{})
 	if err != nil {
 		fmt.Errorf("failed to get node metrics: %s", err)
-		return 0, 0, 0
+		return 0, 0
 	}
 
 	allocatableCpu := float64(node.Status.Allocatable.Cpu().MilliValue())
 	allocatableRam := float64(node.Status.Allocatable.Memory().MilliValue())
-	diskAllocated = float64(node.Status.Capacity.StorageEphemeral().MilliValue())
+	//diskAllocated = float64(node.Status.Capacity.StorageEphemeral().MilliValue())
 
-	diskAllocated = math.Round((diskAllocated / (1024 * 1024 * 1024)) / 1000)
+	//diskAllocated = math.Round((diskAllocated / (1024 * 1024 * 1024)) / 1000)
 
 	usingCpu := float64(metrics.Usage.Cpu().MilliValue())
 	usingRam := float64(metrics.Usage.Memory().MilliValue())
@@ -221,7 +115,47 @@ func (kh K8sHandler) GetMetricUsage(node corev1.Node) (cpuUsage float64, memoryU
 	usageMemory := ToPercentage(usingRam, allocatableRam)
 	//	usageDisk := ToPercentage(usingDisk, allocatableDisk)
 
-	return usageCpu, usageMemory, diskAllocated
+	return usageCpu, usageMemory //diskAllocated
+}
+
+func (kh K8sHandler) GetTopUsage() (nodeCpu map[string]float64, nodeMemory map[string]float64) {
+	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return nodeCpu, nodeMemory
+	}
+
+	for _, node := range nodeList.Items {
+		metrics, err := kh.MetricK8sClient.MetricsV1beta1().NodeMetricses().Get(context.TODO(), node.GetName(), metav1.GetOptions{})
+		if err != nil {
+			log.Println(err)
+			return nodeCpu, nodeMemory
+		}
+
+		usageCpu := ToPercentage(float64(metrics.Usage.Cpu().MilliValue()), float64(node.Status.Allocatable.Cpu().MilliValue()))
+		usageMemory := ToPercentage(float64(metrics.Usage.Memory().MilliValue()), float64(node.Status.Allocatable.Memory().MilliValue()))
+
+		nodeName := node.GetName()
+
+		nodeCpu[nodeName] = usageCpu
+		nodeMemory[nodeName] = usageMemory
+	}
+
+	var keys []string
+	for k := range nodeCpu {
+		keys = append(keys, k)
+	}
+
+	// Sort the slice of key-value pairs by the values in the map in descending order
+	sort.Slice(keys, func(i, j int) bool {
+		return nodeCpu[keys[i]] > nodeCpu[keys[j]]
+	})
+
+	// Print the sorted map
+	for _, k := range keys {
+		fmt.Printf("%s: %d\n", k, nodeCpu[k])
+	}
+	return nodeCpu, nodeMemory
 }
 
 // -- Namespace -- //
@@ -255,22 +189,31 @@ func (kh K8sHandler) GetTopNamespaces() []string {
 	return result
 }
 
-func (kh K8sHandler) GetNamespaceList() (*corev1.NamespaceList, error) {
+func (kh K8sHandler) GetNamespaceName() ([]string, error) {
+	var result []string
+
 	namespaces, err := kh.K8sClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	return namespaces, nil
+
+	for _, namespace := range namespaces.Items {
+		result = append(result, namespace.GetName())
+	}
+
+	return result, nil
 }
 
-func (kh K8sHandler) GetNamespaceByName(name string) (*corev1.Namespace, error) {
-	namespace, err := kh.K8sClient.CoreV1().Namespaces().Get(context.TODO(), name, metav1.GetOptions{})
+func (kh K8sHandler) GetNamespaceList() (*corev1.NamespaceList, error) {
+
+	namespaces, err := kh.K8sClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-	return namespace, nil
+
+	return namespaces, nil
 }
 
 // -- Deployment -- //
@@ -284,36 +227,12 @@ func (kh K8sHandler) GetDeploymentList() (*appsv1.DeploymentList, error) {
 	return deploys, nil
 }
 
-// -- Pod -- //
-
-// Get Pod (name)
-func (kh K8sHandler) GetPodByName(namespace string, podName string) (*corev1.Pod, error) {
-	pod, err := kh.K8sClient.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-	return pod, nil
-}
-
 func (kh K8sHandler) GetPodList() (*corev1.PodList, error) {
 	pods, err := kh.K8sClient.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Println(err)
 		return nil, fmt.Errorf("failed to get pod list %s", err)
 	}
-	return pods, nil
-}
-
-func (kh K8sHandler) GetPodsByNode(nodeName string) (*corev1.PodList, error) {
-	pods, err := kh.K8sClient.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
-	})
-	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("failed to get deployment list %s", err)
-	}
-
 	return pods, nil
 }
 
@@ -324,8 +243,7 @@ func (kh K8sHandler) TransferPod(podList *corev1.PodList) []cm.Pod {
 		result = append(result, cm.Pod{
 			Name:   pod.Name,
 			Status: string(pod.Status.Phase),
-			Image:  pod.Spec.Containers[0].Image,
-			Age:    pod.CreationTimestamp.Time.Format(time.RFC3339),
+			Image:  CheckContainerOfPod(pod).Image,
 		})
 	}
 
@@ -333,76 +251,16 @@ func (kh K8sHandler) TransferPod(podList *corev1.PodList) []cm.Pod {
 
 }
 
-// -- Ingress -- //
+// -- StatefulSets -- //
 
-func (kh K8sHandler) GetIngressList() (*networkv1.IngressList, error) {
-	ingresses, err := kh.K8sClient.NetworkingV1().Ingresses(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("failed to get ingress list %s", err)
-	}
-
-	return ingresses, nil
-}
-
-// -- Service -- //
-
-func (kh K8sHandler) GetServiceList() (*corev1.ServiceList, error) {
-	services, err := kh.K8sClient.CoreV1().Services(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
-
-	if err != nil {
-		log.Println(err)
-		return nil, fmt.Errorf("failed to get service list %s", err)
-	}
-
-	return services, nil
-}
-
-func (kh K8sHandler) GetServiceByName(namespace string, serviceName string) (*corev1.Service, error) {
-	service, err := kh.K8sClient.CoreV1().Services(namespace).Get(context.TODO(), serviceName, metav1.GetOptions{})
-
+func (kh K8sHandler) GetStatefulSetList() (*appsv1.StatefulSetList, error) {
+	statefulSetList, err := kh.K8sClient.AppsV1().StatefulSets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 
-	return service, nil
-}
-
-// -- Persistent Volume -- //
-
-func (kh K8sHandler) GetPersistentVolumeList() (*corev1.PersistentVolumeList, error) {
-	pvs, err := kh.K8sClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
-
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-
-	return pvs, nil
-}
-
-func (kh K8sHandler) GetPersistentVolumeByName(name string) (*corev1.PersistentVolume, error) {
-	pv, err := kh.K8sClient.CoreV1().PersistentVolumes().Get(context.TODO(), name, metav1.GetOptions{})
-
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-
-	return pv, nil
-}
-
-// -- Jobs -- //
-
-func (kh K8sHandler) GetJobsList() (*v1.JobList, error) {
-	jobs, err := kh.K8sClient.BatchV1().Jobs(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-
-	return jobs, nil
+	return statefulSetList, nil
 }
 
 // -- Daemon sets -- //
@@ -416,14 +274,6 @@ func (kh K8sHandler) GetDaemonSetList() (*appsv1.DaemonSetList, error) {
 	}
 
 	return daemonsets, nil
-}
-func GetPersistentVolumeClaim(pv *corev1.PersistentVolume) string {
-	var claim string
-
-	if pv.Spec.ClaimRef != nil {
-		claim = pv.Spec.ClaimRef.Namespace + "/" + pv.Spec.ClaimRef.Name
-	}
-	return claim
 }
 
 // -- util -- //
@@ -446,12 +296,29 @@ func GetRestartCount(pod corev1.Pod) int32 {
 
 // Check if the container has been created //
 
-func CheckContainerOfPod(pod corev1.Pod) string {
+func CheckContainerOfPod(pod corev1.Pod) corev1.Container {
 	if len(pod.Spec.Containers) > 0 {
-		return pod.Spec.Containers[0].Image
+		return pod.Spec.Containers[0]
 
 	} else {
-		return "unknown"
+		return corev1.Container{}
+	}
+}
+
+func CheckContainerOfPodMetrics(metrics *v1beta1.PodMetrics) *v1beta1.ContainerMetrics {
+	if len(metrics.Containers) > 0 {
+		return &metrics.Containers[0]
+
+	} else {
+		return &v1beta1.ContainerMetrics{}
+	}
+}
+
+func CheckOwnerOfPod(pod corev1.Pod) metav1.OwnerReference {
+	if len(pod.ObjectMeta.OwnerReferences) > 0 {
+		return pod.ObjectMeta.OwnerReferences[0]
+	} else {
+		return metav1.OwnerReference{}
 	}
 }
 
@@ -470,3 +337,151 @@ func CheckContainerOfDeploy(deployment appsv1.Deployment) (status string, image 
 
 	return status, image
 }
+
+func (kh K8sHandler) nodeStatus() (ready []string, notReady []string, err error) {
+
+	nodeList, err := kh.K8sClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return ready, notReady, err
+	}
+
+	for _, node := range nodeList.Items {
+		if isNodeReady(&node) {
+			ready = append(ready, node.GetName())
+		} else {
+			notReady = append(ready, node.GetName())
+		}
+	}
+	return ready, notReady, nil
+}
+
+func (kh K8sHandler) podStatus() (running int, pending []string, errorStatus []string, err error) {
+
+	running = 0
+
+	podList, err := kh.K8sClient.CoreV1().Pods(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return running, pending, errorStatus, err
+	}
+
+	for _, pod := range podList.Items {
+		switch pod.Status.Phase {
+		case corev1.PodPending:
+			pending = append(pending, pod.Name)
+		case corev1.PodRunning:
+			running++
+		case corev1.PodSucceeded:
+			running++
+		case corev1.PodFailed:
+			errorStatus = append(errorStatus, pod.Name)
+		default:
+			errorStatus = append(errorStatus, pod.Name)
+		}
+	}
+	return running, pending, errorStatus, nil
+}
+
+func isNodeReady(node *corev1.Node) bool {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			return condition.Status == corev1.ConditionTrue
+		}
+	}
+	return false
+}
+
+func NodeStatus(node *corev1.Node) string {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			return "Ready"
+		}
+	}
+	return "Not Ready"
+}
+func (kh K8sHandler) calculatePodUsage(podName string, namespace string) (int64, int64, error) {
+	// Get the current CPU and memory usage of the pod
+	podMetrics, err := kh.MetricK8sClient.MetricsV1beta1().PodMetricses(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		return 0.0, 0.0, err
+	}
+
+	// Get the CPU and memory limits for the pod
+	pod, err := kh.K8sClient.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		return 0.0, 0.0, err
+	}
+
+	if len(pod.Spec.Containers) < 1 {
+		return 0.0, 0.0, errors.New("no containers fount in the pod")
+	}
+	if len(podMetrics.Containers) < 1 {
+		return 0.0, 0.0, errors.New("no containers fount in the pod")
+
+	}
+
+	cpuUsage := podMetrics.Containers[0].Usage.Cpu().MilliValue()
+	memUsage := podMetrics.Containers[0].Usage.Memory().Value() / 1048576 // Convert bytes to mebibytes
+
+	return cpuUsage, memUsage, nil
+}
+
+func (kh K8sHandler) GetReplicaSetList() (*appsv1.ReplicaSetList, error) {
+	replicaSetList, err := kh.K8sClient.AppsV1().ReplicaSets(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return replicaSetList, nil
+}
+
+func (kh K8sHandler) GetJobList() (*batchv1.JobList, error) {
+	jobList, err := kh.K8sClient.BatchV1().Jobs(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return jobList, nil
+}
+
+func (kh K8sHandler) GetCronJobList() (*batchv1.CronJobList, error) {
+	cronjobList, err := kh.K8sClient.BatchV1().CronJobs(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	return cronjobList, nil
+}
+
+func (kh K8sHandler) GetPVCInfo(namespace, pvcName string) (string, string, bool, error) {
+	pvc, err := kh.K8sClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+	if err != nil {
+		return "", "", false, err
+	}
+
+	claimName := pvc.ObjectMeta.GetName()
+	accessMode := pvc.Spec.AccessModes[0]
+	readonly := pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == corev1.PersistentVolumeFilesystem
+
+	return string(accessMode), claimName, readonly, nil
+}
+
+//func (kh K8sHandler) GetVolumeInfo(volumeName string, namespace string) (string, string, bool, error) {
+//	pv, err := kh.K8sClient.CoreV1().PersistentVolumes().Get(context.TODO(), volumeName, metav1.GetOptions{})
+//	if err != nil {
+//		return "", "", false, err
+//	}
+//
+//	if pv.Spec.ClaimRef == nil {
+//		return "", "", false, fmt.Errorf("No claim found for volume %s", volumeName)
+//	}
+//
+//	pvcName := pv.Spec.ClaimRef.Name
+//	pvc, err := kh.K8sClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+//	if err != nil {
+//		return "", "", false, err
+//	}
+//
+//	return pvc.Spec.VolumeMode, pvcName, pvc.Spec.ReadOnly, nil
+//}

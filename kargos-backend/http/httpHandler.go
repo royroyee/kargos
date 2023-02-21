@@ -21,42 +21,46 @@ func NewHTTPHandler(k8sHandler *k8s.K8sHandler) *HTTPHandler {
 
 func (httpHandler HTTPHandler) StartHTTPServer() {
 	log.Println("Start HTTP Server .. ")
+
 	r := httprouter.New()
 
 	log.Println("Success to Start HTTP Server")
 
-	// overview/main
-	r.GET("/overview/main", httpHandler.GetOverview)
+	// Overview
+	r.GET("/overview/status", httpHandler.GetOverviewStatus)
+	r.GET("/overview/nodes/usage", httpHandler.GetNodeUsageOverview)
+	r.GET("/overview/nodes/top", httpHandler.GetTopNode)
+	r.GET("/overview/pods/top", httpHandler.GetTopPod)
 
-	// node
-	r.GET("/nodes/overview", httpHandler.GetNodeOverview)
-	r.GET("/node/:name", httpHandler.GetNodeDetail)
+	// Events
+	r.GET("/events", httpHandler.GetEvents) // Example : /events/?event=warning&page=1&per_page=10
+	r.GET("/events/count", httpHandler.GetNumberOfEvents)
 
-	// Controllers
-	r.GET("/controllers/deployments/overview", httpHandler.GetDeploymentOverview)
-	r.GET("/controllers/deployment/:namespace/:name", httpHandler.GetDeploymentSpecific)
+	// Nodes
+	r.GET("/nodes", httpHandler.GetNodeOverview)
+	r.GET("/node/usage/:name", httpHandler.GetNodeUsage)
+	r.GET("/node/info/:name", httpHandler.GetNodeInfo)
+	r.GET("/nodes/count", httpHandler.GetNumberOfNodes)
+	//	r.GET("/node/logs/:name", httpHandler.GetLogsOfNode) // TODO (Agent)
 
-	r.GET("/controllers/ingresses/overview", httpHandler.GetIngressOverview)
-	r.GET("/controllers/ingress/:namespace/:name", httpHandler.GetIngressSpecific)
+	// Workload
+	r.GET("/workload/namespaces", httpHandler.GetNamespace)
+	r.GET("/workload", httpHandler.GetControllersByFilter) // Filtering by Namespace, Type
 
-	r.GET("/controllers/jobs/overview", httpHandler.GetJobsOverview)
-	r.GET("/controllers/job/:namespace/:name", httpHandler.GetJobSpecific)
+	r.GET("/workload/count", httpHandler.GetNumberOfControllers)
+	r.GET("/workload/info/:namespace/:name", httpHandler.GetControllerInfo)
+	r.GET("/workload/conditions/:namespace/:name", httpHandler.GetConditions)
+	r.GET("/workload/detail/:namespace/:name", httpHandler.GetControllerDetail)
+	//r.GET("/workload/containers/:namespace/:name", httpHandler.GetTemplateContainers)
 
-	r.GET("/controllers/daemonsets/overview", httpHandler.GetDaemonSetsOverview)
-	r.GET("/controllers/daemonset/:namespace/:name", httpHandler.GetDaemonSetSpecific)
+	r.GET("/pod/info/:name", httpHandler.GetPodInfo) // Information of Pod (detail page)
+	r.GET("/pod/usage/:name", httpHandler.GetPodUsage)
 
-	// Resources
-	r.GET("/resources/namespaces/overview", httpHandler.GetNamespaceOverview)
-	r.GET("/resources/namespace/:name", httpHandler.GetNamespaceDetail)
+	r.GET("/pod/logs/:namespace/:name", httpHandler.GetLogsOfPod)
+	r.GET("/pod/containers/:name", httpHandler.GetContainers)
 
-	r.GET("/resources/pods/overview", httpHandler.GetPodOverview)
-	r.GET("/resources/pod/:name", httpHandler.GetPodDetail)
-
-	r.GET("/resources/services/overview", httpHandler.GetServiceOverview)
-	r.GET("/resources/service/:namespace/:name", httpHandler.GetServiceDetail)
-
-	r.GET("/resources/persistentvolumes/overview", httpHandler.GetPersistentVolumeOverview)
-	r.GET("/resources/persistentvolume/:name", httpHandler.GetPersistentVolumeDetail)
+	//	r.GET("/workload/controller/events/:name", httpHandler.GetEventsByController) // Only 10
 
 	log.Fatal(http.ListenAndServe(":9000", r))
+
 }

@@ -67,7 +67,7 @@ func printContainers(containers []cm.Container) {
 }
 
 // matchPodContainers finds out the pod from container.
-func matchPodContainers(containers []cm.Container, pod *cm.Pod) {
+func matchPodContainers(containers []cm.Container, pod *cm.PodUsage) {
 	// Look for containers that matches the pod's container.
 	// This is O(n^2) operation, therefore, this must be optimized.
 	for _, podContainerName := range pod.ContainerNames {
@@ -84,14 +84,15 @@ func (c Containers) SendContainerData(ctx context.Context, info *ContainersInfo)
 	containers := translateContainersInfo(info)
 	//printContainers(containers)
 
-	pods, _ := c.K8sHandler.GetPodOverview()
+	//	pods, _ := c.K8sHandler.PodOverview()
+	pods, _ := c.K8sHandler.GetPodUsage()
 	for i, pod := range pods {
 		matchPodContainers(containers, &pod)
 		pods[i] = pod
 	}
 
 	// Store Pod Data into DB
-	c.K8sHandler.StorePodInDB(pods)
+	c.K8sHandler.StorePodUsageInDB(pods)
 
 	log.Printf("received data from agent %s\n", info.NodeInfo)
 	return &Response{

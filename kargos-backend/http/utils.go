@@ -180,7 +180,6 @@ func (httpHandler HTTPHandler) GetEvents(w http.ResponseWriter, r *http.Request,
 
 	eventType := r.URL.Query().Get("event")
 
-	// Parse the query parameters
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil {
 		page = 1
@@ -229,7 +228,6 @@ func (httpHandler HTTPHandler) GetPodList(w http.ResponseWriter, r *http.Request
 
 func (httpHandler HTTPHandler) GetNodeOverview(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
-	// Parse the query parameters
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil {
 		page = 1
@@ -272,7 +270,6 @@ func (httpHandler HTTPHandler) GetNodeInfo(w http.ResponseWriter, r *http.Reques
 
 func (httpHandler HTTPHandler) GetControllers(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
-	// Parse the query parameters
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil {
 		page = 1
@@ -314,8 +311,6 @@ func (httpHandler HTTPHandler) GetNamespace(w http.ResponseWriter, r *http.Reque
 }
 func (httpHandler HTTPHandler) GetControllersByFilter(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
-	// Parse the query parameters
-
 	namespace := r.URL.Query().Get("namespace")
 	controller := r.URL.Query().Get("controller")
 
@@ -342,8 +337,6 @@ func (httpHandler HTTPHandler) GetControllersByFilter(w http.ResponseWriter, r *
 
 func (httpHandler HTTPHandler) GetControllerInfo(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
-	// Parse the query parameters
-
 	controllerType := r.URL.Query().Get("type")
 
 	controllerInfo, err := httpHandler.k8sHandler.GetControllerInfo(controllerType, params.ByName("namespace"), params.ByName("name"))
@@ -357,6 +350,50 @@ func (httpHandler HTTPHandler) GetControllerInfo(w http.ResponseWriter, r *http.
 	w.Write(result)
 	w.WriteHeader(http.StatusOK)
 }
+
+func (httpHandler HTTPHandler) GetControllerDetail(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+
+	controllerInfo, err := httpHandler.k8sHandler.GetControllerDetail(params.ByName("namespace"), params.ByName("name"))
+	result, err := json.Marshal(&controllerInfo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (httpHandler HTTPHandler) GetConditions(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+	controllerType := r.URL.Query().Get("type")
+	conditions, err := httpHandler.k8sHandler.GetConditions(controllerType, ps.ByName("namespace"), ps.ByName("name"))
+	result, err := json.Marshal(&conditions)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(result)
+	w.WriteHeader(http.StatusOK)
+}
+
+//func (httpHandler HTTPHandler) GetTemplateContainers(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+//
+//	controllerType := r.URL.Query().Get("type")
+//	containers, err := httpHandler.k8sHandler.GetTemplateContainers(controllerType, ps.ByName("namespace"), ps.ByName("name"))
+//	result, err := json.Marshal(&containers)
+//	if err != nil {
+//		http.Error(w, err.Error(), http.StatusBadRequest)
+//		return
+//	}
+//
+//	w.Header().Set("Content-Type", "application/json")
+//	w.Write(result)
+//	w.WriteHeader(http.StatusOK)
+//}
 
 func (httpHandler HTTPHandler) GetControllersByType(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
@@ -384,7 +421,7 @@ func (httpHandler HTTPHandler) GetControllersByType(w http.ResponseWriter, r *ht
 
 func (httpHandler HTTPHandler) GetEventsByController(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 
-	nodeInfo, err := httpHandler.k8sHandler.GetEventsByController(params.ByName(params.ByName("name")))
+	nodeInfo, err := httpHandler.k8sHandler.GetEventsByController(params.ByName("name"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

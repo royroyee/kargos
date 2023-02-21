@@ -191,8 +191,10 @@ func (kh K8sHandler) GetNodeUsageAvg() (cm.NodeUsage, error) {
 				"_id": bson.M{
 					"minute": bson.M{"$minute": bson.M{"$toDate": "$timestamp"}},
 				},
-				"avgCpuUsage": bson.M{"$avg": "$cpuusage"},
-				"avgRamUsage": bson.M{"$avg": "$ramusage"},
+				"avgCpuUsage":     bson.M{"$avg": "$cpuusage"},
+				"avgRamUsage":     bson.M{"$avg": "$ramusage"},
+				"avgNetworkUsage": bson.M{"$avg": "$networkusage"},
+				"avgDiskUsage":    bson.M{"$avg": "$diskusage"},
 			},
 		},
 		{"$limit": 24},
@@ -212,6 +214,12 @@ func (kh K8sHandler) GetNodeUsageAvg() (cm.NodeUsage, error) {
 
 		avgRamUsage := int(usage["avgRamUsage"].(float64))
 		result.RamUsage = append(result.RamUsage, avgRamUsage)
+
+		avgNetworkUsage := int(usage["avgNetworkUsage"].(float64))
+		result.NetworkUsage = append(result.NetworkUsage, avgNetworkUsage)
+
+		avgDiskUsage := int(usage["avgDiskUsage"].(float64))
+		result.DiskUsage = append(result.DiskUsage, avgDiskUsage)
 	}
 
 	return result, nil
@@ -230,7 +238,7 @@ func (kh K8sHandler) GetNodeUsage(nodeName string) (cm.NodeUsage, error) {
 			"cpuusage":     1,
 			"ramusage":     1,
 			"networkusage": 1,
-			// TODO Disk Usage
+			"diskusage":    1,
 		}},
 	})
 
@@ -250,8 +258,10 @@ func (kh K8sHandler) GetNodeUsage(nodeName string) (cm.NodeUsage, error) {
 
 		NetworkUsage := int(usage["networkusage"].(float64))
 		result.NetworkUsage = append(result.NetworkUsage, NetworkUsage)
-	}
 
+		DiskUsage := int(usage["diskusage"].(float64))
+		result.DiskUsage = append(result.DiskUsage, DiskUsage)
+	}
 	return result, nil
 }
 
@@ -263,11 +273,11 @@ func (kh K8sHandler) GetPodUsageDetail(podName string) (cm.GetPodUsage, error) {
 		{"$match": bson.M{"name": podName}},
 		{"$limit": 24},
 		{"$project": bson.M{
-			"_id":      nil,
-			"cpuusage": 1,
-			"ramusage": 1,
-			// "networkusage": 1,
-			// TODO Disk Usage
+			"_id":          nil,
+			"cpuusage":     1,
+			"ramusage":     1,
+			"networkusage": 1,
+			"diskusage":    1,
 		}},
 	})
 
@@ -285,8 +295,11 @@ func (kh K8sHandler) GetPodUsageDetail(podName string) (cm.GetPodUsage, error) {
 		RamUsage := int(usage["ramusage"].(int64))
 		result.RamUsage = append(result.RamUsage, RamUsage)
 
-		//NetworkUsage := int(usage["networkusage"].(float64))
-		//result.NetworkUsage = append(result.NetworkUsage, NetworkUsage)
+		NetworkUsage := int(usage["networkusage"].(int64))
+		result.NetworkUsage = append(result.NetworkUsage, NetworkUsage)
+
+		DiskUsage := int(usage["diskusage"].(int64))
+		result.DiskUsage = append(result.DiskUsage, DiskUsage)
 	}
 
 	return result, nil
@@ -306,7 +319,7 @@ func (kh K8sHandler) GetTopNode() (cm.TopNode, error) {
 	// Find the top 3 nodes with highest cpuusage and ramusage among the most recent data
 	pipe := collection.Pipe([]bson.M{
 
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now}}},
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lt": now.Format("2006-01-02 15:04")}}},
 		bson.M{"$sort": bson.M{"cpuusage": -1}},
 		bson.M{"$limit": 3},
 	})
@@ -326,7 +339,7 @@ func (kh K8sHandler) GetTopNode() (cm.TopNode, error) {
 	// Find the top 3 nodes with highest ramusage among the most recent data
 	pipe = collection.Pipe([]bson.M{
 
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now}}},
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lt": now.Format("2006-01-02 15:04")}}},
 		bson.M{"$sort": bson.M{"ramusage": -1}},
 		bson.M{"$limit": 3},
 	})
@@ -360,7 +373,9 @@ func (kh K8sHandler) GetTopPod() (cm.TopPod, error) {
 	// Find the top 3 pods with highest cpuusage and ramusage among the most recent data
 	pipe := collection.Pipe([]bson.M{
 
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now.Format("2006-01-02 15:04")}}},
+		//bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now.Format("2006-01-02 15:04")}}},
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lt": now.Format("2006-01-02 15:04")}}},
+
 		bson.M{"$sort": bson.M{"cpuusage": -1}},
 		bson.M{"$limit": 3},
 	})
@@ -379,8 +394,8 @@ func (kh K8sHandler) GetTopPod() (cm.TopPod, error) {
 
 	// Find the top 3 pods with highest ramusage among the most recent data
 	pipe = collection.Pipe([]bson.M{
-		// Filter out documents with a timestamp that is more than 1 minute in the past
-		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lte": now.Format("2006-01-02 15:04")}}},
+
+		bson.M{"$match": bson.M{"timestamp": bson.M{"$gte": cutoffTime, "$lt": now.Format("2006-01-02 15:04")}}},
 		////	Group by name and take the first 3 groups
 		//bson.M{"$group": bson.M{
 		//	"_id":   "$name",
@@ -465,7 +480,7 @@ func (kh K8sHandler) StorePodInfoInDB() {
 		return
 	}
 
-	// Test (TODO DELETE)
+	////Test (TODO DELETE)
 	//pods, err := kh.GetPodUsage()
 	//kh.StorePodUsageInDB(pods)
 	// TEST
@@ -599,12 +614,12 @@ func (kh K8sHandler) storeControllerInDB() {
 		bulk.Upsert(bson.M{"name": controller.Name, "namespace": controller.Namespace}, controller)
 	}
 
-	result, err := bulk.Run()
+	_, err := bulk.Run()
 	if err != nil {
 		log.Println(err)
 	}
 
-	log.Println("Controller Data stored successfully : ", result)
+	//log.Println("Controller Data stored successfully : ", result)
 }
 
 func (kh K8sHandler) deleteControllerFromDB(controllerList []cm.Controller) {
@@ -751,6 +766,20 @@ func (kh K8sHandler) GetContainersOfPod(podName string) (cm.Containers, error) {
 	sort := []string{"-timestamp"}
 	limit := 1
 	err := collection.Find(filter).Sort(sort...).Limit(limit).One(&result)
+	if err != nil {
+		log.Println(err)
+		return result, err
+	}
+	return result, nil
+}
+
+func (kh K8sHandler) GetVolumesOfController(namespace string, name string) (cm.ControllerDetail, error) {
+	var result cm.ControllerDetail
+	collection := kh.session.DB("kargos").C("controller")
+
+	filter := bson.M{"namespace": namespace, "name": name}
+
+	err := collection.Find(filter).One(&result)
 	if err != nil {
 		log.Println(err)
 		return result, err

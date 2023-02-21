@@ -31,17 +31,17 @@ func (kh K8sHandler) GetNodeList() ([]cm.Node, error) {
 
 	for _, node := range nodeList.Items {
 
-		cpuUsage, ramUsage, diskAllocated := kh.GetMetrics(node)
+		cpuUsage, ramUsage := kh.GetMetrics(node)
 
 		result = append(result, cm.Node{
-			Name:          node.GetName(),
-			CpuUsage:      cpuUsage,
-			RamUsage:      ramUsage,
-			DiskAllocated: diskAllocated,
-			NetworkUsage:  float64(rand.Intn(99) + 1), // TODO
-			IP:            node.Status.Addresses[0].Address,
-			Status:        NodeStatus(&node),
-			Timestamp:     time.Now().Format("2006-01-02 15:04"),
+			Name:         node.GetName(),
+			CpuUsage:     cpuUsage,
+			RamUsage:     ramUsage,
+			DiskUsage:    float64(rand.Intn(25) + 20), // TODO
+			NetworkUsage: float64(rand.Intn(25) + 20), // TODO
+			IP:           node.Status.Addresses[0].Address,
+			Status:       NodeStatus(&node),
+			Timestamp:    time.Now().Format("2006-01-02 15:04"),
 		})
 	}
 	return result, nil
@@ -94,18 +94,18 @@ func (kh K8sHandler) GetNode(nodeName string) (*corev1.Node, error) {
 	return node, nil
 }
 
-func (kh K8sHandler) GetMetrics(node corev1.Node) (cpuUsage float64, memoryUsage float64, diskAllocated float64) {
+func (kh K8sHandler) GetMetrics(node corev1.Node) (cpuUsage float64, memoryUsage float64) {
 	metrics, err := kh.MetricK8sClient.MetricsV1beta1().NodeMetricses().Get(context.TODO(), node.GetName(), metav1.GetOptions{})
 	if err != nil {
 		fmt.Errorf("failed to get node metrics: %s", err)
-		return 0, 0, 0
+		return 0, 0
 	}
 
 	allocatableCpu := float64(node.Status.Allocatable.Cpu().MilliValue())
 	allocatableRam := float64(node.Status.Allocatable.Memory().MilliValue())
-	diskAllocated = float64(node.Status.Capacity.StorageEphemeral().MilliValue())
+	//diskAllocated = float64(node.Status.Capacity.StorageEphemeral().MilliValue())
 
-	diskAllocated = math.Round((diskAllocated / (1024 * 1024 * 1024)) / 1000)
+	//diskAllocated = math.Round((diskAllocated / (1024 * 1024 * 1024)) / 1000)
 
 	usingCpu := float64(metrics.Usage.Cpu().MilliValue())
 	usingRam := float64(metrics.Usage.Memory().MilliValue())
@@ -115,7 +115,7 @@ func (kh K8sHandler) GetMetrics(node corev1.Node) (cpuUsage float64, memoryUsage
 	usageMemory := ToPercentage(usingRam, allocatableRam)
 	//	usageDisk := ToPercentage(usingDisk, allocatableDisk)
 
-	return usageCpu, usageMemory, diskAllocated
+	return usageCpu, usageMemory //diskAllocated
 }
 
 func (kh K8sHandler) GetTopUsage() (nodeCpu map[string]float64, nodeMemory map[string]float64) {

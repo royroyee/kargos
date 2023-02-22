@@ -12,6 +12,7 @@ import (
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"log"
 	"math/rand"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -535,12 +536,15 @@ func (kh K8sHandler) GetLogsOfPod(namespace string, podName string) ([]string, e
 		line := scanner.Text()
 
 		// extract the "$date" field from the JSON object in the log line
-		dateStart := strings.Index(line, "{\"$date\":\"")
-		dateEnd := strings.Index(line[dateStart+1:], "\"}")
-		dateStr := line[dateStart+9 : dateStart+1+dateEnd]
+		re := regexp.MustCompile(`\{"\$date":"([^"]+)"\}`)
+		match := re.FindStringSubmatch(line)
+		var dateStr string
+		if len(match) == 2 {
+			dateStr = match[1]
+		}
 
 		// format the log line with the timestamp and pod name
-		formatted := fmt.Sprintf("%s [%s] %s", dateStr, podName, line[dateStart+1+dateEnd+3:])
+		formatted := fmt.Sprintf("%s [%s] %s", dateStr, podName, line)
 		result = append(result, formatted)
 	}
 

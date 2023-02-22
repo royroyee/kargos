@@ -195,7 +195,7 @@ func (kh K8sHandler) GetPodUsage() ([]cm.PodUsage, error) {
 		containerNames := []string{}
 		containerStats = pod.Status.ContainerStatuses
 		for _, containerStat := range containerStats {
-			containerNames = append(containerNames, containerStat.Name)
+			containerNames = append(containerNames, containerStat.ContainerID)
 		}
 
 		podName = pod.GetName()

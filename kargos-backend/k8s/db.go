@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"fmt"
 	cm "github.com/boanlab/kargos/common"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -453,11 +452,7 @@ func (kh K8sHandler) StorePodUsageInDB(podList []cm.PodUsage) {
 	bulk := collection.Bulk()
 	for _, pod := range podList {
 		//bulk.Upsert(bson.M{"name": pod.Name}, pod) // duplicate processing : name of pod
-		fmt.Println("StorePodUsageInDB : ", pod.Name)
-		printContainers(pod.Containers)
 		bulk.Insert(pod)
-		fmt.Println()
-
 	}
 	_, err := bulk.Run()
 	if err != nil {
@@ -465,15 +460,16 @@ func (kh K8sHandler) StorePodUsageInDB(podList []cm.PodUsage) {
 	}
 }
 
-// printContainers will print information on all container.
-func printContainers(containers []cm.Container) {
-	for i, cnt := range containers {
-		fmt.Printf("[%d] %s", i, cnt.ID)
-		for _, proc := range cnt.Processes {
-			fmt.Printf("StoreDB:    %d, %s, %f, %f (%s)\n", proc.PID, proc.Name, proc.CpuUsage, proc.RamUsage, proc.Status)
-		}
-	}
-}
+// // printContainers will print information on all container.
+//
+//	func printContainers(containers []cm.Container) {
+//		for i, cnt := range containers {
+//			fmt.Printf("[%d] %s", i, cnt.ID)
+//			for _, proc := range cnt.Processes {
+//				fmt.Printf("StoreDB:    %d, %s, %f, %f (%s)\n", proc.PID, proc.Name, proc.CpuUsage, proc.RamUsage, proc.Status)
+//			}
+//		}
+//	}
 func (kh K8sHandler) StorePodInfoInDB() {
 
 	podList, err := kh.GetPodInfoList()

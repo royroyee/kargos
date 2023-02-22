@@ -137,8 +137,8 @@ type Process struct {
 
 // Container stores data for a single container.
 type Container struct {
-	ID        string    `json:"name"`
-	Namespace string    `json:"image"`
+	ID        string    `json:"id"`
+	Namespace string    `json:"namespace"`
 	Processes []Process `json:"processes"`
 }
 

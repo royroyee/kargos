@@ -142,8 +142,6 @@ type Container struct {
 	Processes []Process `json:"processes"`
 }
 
-// 02.11 ~ //
-
 // Event
 type Event struct {
 	Created    string `json:"created"`
@@ -155,7 +153,7 @@ type Event struct {
 }
 
 type NodeStatus struct {
-	NotReady []string `json:"not_ready""`
+	NotReady []string `json:"not_ready"`
 	Ready    []string `json:"ready"`
 }
 
@@ -216,7 +214,7 @@ type PodUsage struct {
 
 	// Container struct
 	Containers     []Container `json:"containers"`
-	ContainerNames []string
+	ContainerNames []string    `json:"container_names"`
 }
 type GetPodUsage struct {
 	CpuUsage     []int `json:"cpu_usage"`
@@ -336,7 +334,10 @@ type ControllerInfo struct {
 }
 
 type Containers struct {
-	ContainerNames []string `json:"container_names"`
+
+	// Container struct
+	Containers     []Container `bson:"containers"`
+	ContainerNames []string    `json:"container_names"`
 }
 
 type Conditions struct {
@@ -362,4 +363,23 @@ type Port struct {
 type ControllerDetail struct {
 	TemplateContainers []string `json:"template_containers"`
 	Volumes            []string `json:"volumes"`
+}
+
+type MgoProcess struct {
+	Name     string  `bson:"name"`
+	Status   string  `bson:"status"`
+	PID      int32   `bson:"pid"`
+	CpuUsage float32 `bson:"cpu_usage"`
+	RamUsage float32 `bson:"ram_usage"`
+}
+
+type MgoContainer struct {
+	ID        string       `bson:"id"`
+	Namespace string       `bson:"namespace"`
+	Processes []MgoProcess `bson:"processes"`
+}
+
+type MgoPod struct {
+	Containers     []MgoContainer `bson:"containers"`
+	ContainerNames []string       `bson:"container_names"`
 }

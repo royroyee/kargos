@@ -82,13 +82,16 @@ func matchPodContainers(containers []cm.Container, pod *cm.PodUsage) {
 // SendContainerData receives container is a callback function for gRPC with service of Containers.
 func (c Containers) SendContainerData(ctx context.Context, info *ContainersInfo) (*Response, error) {
 	containers := translateContainersInfo(info)
-	//printContainers(containers)
+	//printContainers(containers) (debug)
 
 	//	pods, _ := c.K8sHandler.PodOverview()
 	pods, _ := c.K8sHandler.GetPodUsage()
 	for i, pod := range pods {
 		matchPodContainers(containers, &pod)
 		pods[i] = pod
+		fmt.Println("SendContainerData")
+		printContainers(pods[i].Containers)
+		fmt.Println()
 	}
 
 	// Store Pod Data into DB

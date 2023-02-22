@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"fmt"
 	cm "github.com/boanlab/kargos/common"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -430,7 +431,7 @@ func (kh K8sHandler) deleteNodeFromDB() {
 	collection := kh.session.DB("kargos").C("node")
 
 	// Delete the node data older than 25 hours
-	cutoff := time.Now().Add(-25 * time.Hour)
+	cutoff := time.Now().Add(-30 * time.Minute)
 	_, err := collection.RemoveAll(bson.M{"timestamp": bson.M{"$lte": cutoff}})
 	if err != nil {
 		log.Println(err)
@@ -452,15 +453,27 @@ func (kh K8sHandler) StorePodUsageInDB(podList []cm.PodUsage) {
 	bulk := collection.Bulk()
 	for _, pod := range podList {
 		//bulk.Upsert(bson.M{"name": pod.Name}, pod) // duplicate processing : name of pod
+		fmt.Println("StorePodUsageInDB : ", pod.Name)
+		printContainers(pod.Containers)
 		bulk.Insert(pod)
+		fmt.Println()
+
 	}
 	_, err := bulk.Run()
 	if err != nil {
 		log.Println(err)
-		return
 	}
 }
 
+// printContainers will print information on all container.
+func printContainers(containers []cm.Container) {
+	for i, cnt := range containers {
+		fmt.Printf("[%d] %s", i, cnt.ID)
+		for _, proc := range cnt.Processes {
+			fmt.Printf("StoreDB:    %d, %s, %f, %f (%s)\n", proc.PID, proc.Name, proc.CpuUsage, proc.RamUsage, proc.Status)
+		}
+	}
+}
 func (kh K8sHandler) StorePodInfoInDB() {
 
 	podList, err := kh.GetPodInfoList()
@@ -472,7 +485,7 @@ func (kh K8sHandler) StorePodInfoInDB() {
 
 	bulk := collection.Bulk()
 	for _, pod := range podList {
-		bulk.Upsert(bson.M{"name": pod.Name}, pod) // duplicate processing : name of pod
+		bulk.Upsert(bson.M{"name": pod.Name, "namespace": pod.Namespace}, pod) // duplicate processing : name of pod
 	}
 	_, err = bulk.Run()
 	if err != nil {
@@ -504,7 +517,7 @@ func (kh K8sHandler) deletePodFromDB() {
 	collection := kh.session.DB("kargos").C("podusage")
 
 	// Delete the node data older than 25 hours
-	cutoff := time.Now().Add(-25 * time.Hour)
+	cutoff := time.Now().Add(-25 * time.Minute) // Test
 	_, err := collection.RemoveAll(bson.M{"timestamp": bson.M{"$lte": cutoff}})
 	if err != nil {
 		log.Println(err)
@@ -536,22 +549,6 @@ func (kh K8sHandler) GetInfoOfPod(podName string) (cm.PodInfo, error) {
 		return result, err
 	}
 	return result, nil
-}
-
-func (kh K8sHandler) GetPodUsageFromDB(podName string) (cm.PodUsage, error) {
-	var result = cm.PodUsage{}
-
-	filter := bson.M{"name": podName}
-	collection := kh.session.DB("kargos").C("pod")
-
-	err := collection.Find(filter).One(&result)
-	if err != nil {
-		log.Println(err)
-		return result, err
-	}
-
-	return result, nil
-
 }
 
 func (kh K8sHandler) GetEvents(eventLevel string, page int, perPage int) ([]cm.Event, error) {

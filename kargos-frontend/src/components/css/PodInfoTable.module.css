@@ -1,0 +1,32 @@
+.listTable {
+    list-style: none;
+    padding: 0;
+}
+
+.list {
+    display: flex;
+    border-bottom: 1px solid #eeeeee;
+}
+
+.created {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 10px;
+}
+
+.icon {
+    flex: 0.1;
+    margin: 10px;
+}
+
+.cont {
+    margin-left: 30px;
+    flex: 8;
+}
+
+.name {
+    font-size: 1.2em;
+    font-weight: bold;
+}

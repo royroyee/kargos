@@ -1,0 +1,16 @@
+.code-block {
+    background-color: #282c34;
+    color: #abb2bf;
+    font-family: monospace;
+    padding: 1rem;
+    overflow-x: auto;
+    border-radius: 10px;
+  }
+  
+  .code-block pre {
+    margin: 0;
+  }
+  
+  .code-block code {
+    display: block;
+  }
